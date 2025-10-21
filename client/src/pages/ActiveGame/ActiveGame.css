@@ -1,0 +1,129 @@
+.active-game {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  color: white;
+  padding: 20px;
+  font-family: 'Arial', sans-serif;
+}
+
+.game-header {
+  text-align: center;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+}
+
+.game-header h1 {
+  font-size: 2.5rem;
+  margin: 0 0 15px 0;
+  background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.game-status {
+  margin: 15px 0;
+}
+
+.game-status h2 {
+  font-size: 1.5rem;
+  color: #4ecdc4;
+  margin: 10px 0;
+}
+
+.connection-status {
+  font-size: 1rem;
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  display: inline-block;
+  margin-top: 10px;
+}
+
+.game-content {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.players-section {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  padding: 20px;
+  backdrop-filter: blur(10px);
+}
+
+.players-section h3 {
+  font-size: 1.3rem;
+  color: #4ecdc4;
+  margin: 0 0 15px 0;
+}
+
+.players-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.player-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.player-name {
+  font-weight: bold;
+  color: #4ecdc4;
+}
+
+.player-status {
+  font-size: 1.2rem;
+}
+
+.game-area {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  padding: 20px;
+  backdrop-filter: blur(10px);
+}
+
+.game-board {
+  text-align: center;
+}
+
+.game-board h3 {
+  font-size: 1.5rem;
+  color: #4ecdc4;
+  margin: 0 0 20px 0;
+}
+
+.game-board p {
+  font-size: 1.1rem;
+  color: #bdc3c7;
+  margin: 20px 0;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .game-content {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  
+  .game-header h1 {
+    font-size: 2rem;
+  }
+  
+  .game-status h2 {
+    font-size: 1.3rem;
+  }
+}
