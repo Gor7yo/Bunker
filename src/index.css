@@ -1,0 +1,38 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
+
+:root {
+  background-color: #333;
+  color: white;
+  --linearGrad: linear-gradient(45deg, #EA6607 20px, #370072 80px)
+}
+
+button {
+	outline: none;
+  border: none;
+  color: white;
+	background: -webkit-linear-gradient(75deg, #EA6607, #370072);
+  transition: .2s ease;
+  cursor: pointer;
+
+  &:active {
+    scale: 95%;
+  }
+
+  &:hover {
+    scale: 103%;
+  }
+}
+
+input {
+	outline: none;
+  border: none;
+}
+
+p, span, strong, h1, h2, h3, h4, h5, h6 {
+  cursor: default;
+}

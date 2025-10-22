@@ -1,0 +1,180 @@
+.username {
+	display: flex;
+	flex-direction: column;
+	gap: 7px;
+	width: 100%;
+	align-items: center;
+}
+
+.join-room {
+	display: flex;
+	flex-direction: column;
+	height: 700px;
+	background-color: #161616;
+	padding: 12px;
+	border-radius: 24px;
+}
+
+.back-to-menu {
+	text-decoration: none;
+	color: #fff;
+	padding: 6px;
+	border-radius: 8px;
+	font-weight: 700;
+}
+
+.dropdown {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	top: 0;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	background-color: #00000079;
+	left: 0;
+	z-index: 1111;
+	color: black;
+}
+
+.dropdown-block {
+	background: linear-gradient(135deg, 
+        #856868 0%, 
+        #442b2b 25%, 
+        #462222 50%, 
+        #422a2a 75%, 
+        #302424 100%);
+    border: 2px solid #b65916;
+    border-radius: 5px;
+    box-shadow: 0 0 15px rgba(139, 69, 19, 0.4);
+    color: #fff;
+	padding: 18px 18px 28px;
+	border-radius: 20px;
+}
+
+.cross {
+	font-size: 18px;
+	transform-origin: center;
+	transition: .2s ease;
+
+	&:hover {
+		font-size: 20px;
+	}
+}
+
+.cross-block {
+	display: flex;
+	align-items: center;
+	justify-content: end;
+	cursor: pointer;
+	width: 20px;
+	max-height: 10px;
+	width: 100%;
+}
+
+.username input {
+	width: 300px;
+	padding: 12px;
+	font-size: 18px;
+	font-weight: 700;
+	background: var(--linearGrad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.input-area {
+	background-color: #ffffff;
+	border-radius: 12px;
+	width: 300px;
+	display: flex;
+	transition: .2s ease;
+}
+
+.input-area input {
+	width: 100%;
+}
+
+.username input::-webkit-input-placeholder {
+	font-size: 18px;
+	font-weight: 700;
+}
+
+.ready-button {
+	padding: 8px;
+	width: 220px;
+	border-radius: 12px;
+	border-radius: 12px;
+	border: 1px solid #370072;
+	color: white;
+	font-size: 18px;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.webcamera {
+	width: 300px;
+}
+
+.webcam {
+	height: 320px;
+}
+
+.webcam strong {
+	font-size: 12px;
+}
+
+.username-title {
+	color: white;
+}
+
+.input-area.ready {
+	background-color: #ffffff9b;
+}
+
+.actions-main-block {
+	display: grid;
+	height: 100%;
+	grid-template-columns: 1fr 300px;
+	justify-content: space-between;
+	margin-top: 20px;
+}
+
+.select-role {
+	font-size: 18px;
+	background-color: none;
+	transition: .2s ease;
+	padding: 0 12px;
+	border-radius: 12px;
+	border: none;
+	outline: none;
+}
+
+.select-label {
+	font-size: 18px;
+	font-weight: 700;
+}
+
+.select-block {
+	display: flex;
+	gap: 18px;
+}
+
+.players-list {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: start;
+	padding: 10px 4px;
+	text-decoration: none;
+	width: 200px;
+	border: 2px solid #366444;
+	border-radius: 12px;
+}
+
+ul {
+	list-style: none;
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+}

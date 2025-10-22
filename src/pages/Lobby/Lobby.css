@@ -1,0 +1,196 @@
+/* Lobby.css */
+.lobby-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #1a1a1a;
+}
+
+.lobby-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 10px;
+  flex: 1;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.player-video-card {
+  position: relative;
+  background: #222;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  border: 2px solid transparent;
+  transition: border-color 0.3s ease;
+}
+
+.player-video-card:hover {
+  border-color: #4a9eff;
+}
+
+.player-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #333;
+}
+
+.player-name {
+  position: absolute;
+  bottom: 5px;
+  left: 5px;
+  color: white;
+  font-weight: bold;
+  text-shadow: 0 0 5px black;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.player-role {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  color: yellow;
+  font-weight: bold;
+  text-shadow: 0 0 5px black;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.camera-off-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+}
+
+.camera-off-icon {
+  font-size: 2em;
+  margin-bottom: 10px;
+}
+
+.camera-off-text {
+  font-size: 0.9em;
+  text-align: center;
+}
+
+.controls-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background: #2a2a2a;
+  border-top: 1px solid #444;
+}
+
+.control-btn {
+  background: #4a9eff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 20px;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-btn:hover {
+  background: #3a8eef;
+  transform: translateY(-2px);
+}
+
+.control-btn.active {
+  background: #4a9eff;
+}
+
+.control-btn.inactive {
+  background: #666;
+}
+
+.control-btn.inactive:hover {
+  background: #777;
+}
+
+.debug-btn {
+  background: #ff6b6b;
+  font-size: 14px;
+  padding: 8px 16px;
+}
+
+.debug-btn:hover {
+  background: #ff5252;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #4a9eff;
+  font-weight: 500;
+}
+
+.host-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ff6b6b;
+  font-weight: 500;
+  background: rgba(255, 107, 107, 0.1);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 107, 107, 0.3);
+}
+
+.host-indicator {
+  font-size: 16px;
+  animation: pulse 2s infinite;
+}
+
+.status-indicator {
+  font-size: 12px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+  .lobby-grid {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+  }
+  
+  .controls-panel {
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+  }
+}
