@@ -27,15 +27,15 @@ export const Lobby = ({ ws, playerId, players }) => {
             frameRate: { ideal: 30 }
           },
           audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
           }
         });
         
         console.log("✅ Камера инициализирована, треки:", {
           video: stream.getVideoTracks().map(t => ({enabled: t.enabled, readyState: t.readyState})),
-          audio: stream.getAudioTracks().map(t => ({enabled: t.enabled, readyState: t.readyState}))
+          audio: false
         });
         
         setLocalStream(stream);
@@ -188,7 +188,7 @@ export const Lobby = ({ ws, playerId, players }) => {
       setTimeout(async () => {
         try {
           const offer = await pc.createOffer({
-            offerToReceiveAudio: true,
+            offerToReceiveAudio: false,
             offerToReceiveVideo: true
           });
           await pc.setLocalDescription(offer);
