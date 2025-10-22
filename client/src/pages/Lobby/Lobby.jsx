@@ -1,4 +1,4 @@
-// Lobby.js - исправленная версия
+// Lobby.js - версия с камерами без микрофонов
 import React, { useState, useEffect, useRef } from "react";
 import "./Lobby.css";
 
@@ -8,10 +8,10 @@ export const Lobby = ({ ws, playerId, players }) => {
   const peersRef = useRef({});
   const videoRefs = useRef({});
   const isInitialized = useRef(false);
-  const streamLockRef = useRef(false); // Защита от дублирования потоков
+  const streamLockRef = useRef(false);
 
   // =========================
-  // 📹 Инициализация локальной камеры (УПРОЩЕННАЯ)
+  // 📹 Инициализация локальной камеры (БЕЗ МИКРОФОНА)
   // =========================
   useEffect(() => {
     if (streamLockRef.current) return;
@@ -19,23 +19,22 @@ export const Lobby = ({ ws, playerId, players }) => {
 
     async function initCamera() {
       try {
-        console.log("🎥 Запуск инициализации камеры...");
+        console.log("🎥 Запуск инициализации камеры (без микрофона)...");
+        
+        // 🔇 ВАЖНО: запрашиваем только видео, без аудио
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
             width: { ideal: 640 }, 
             height: { ideal: 480 },
             frameRate: { ideal: 30 }
           },
-          audio: {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false
-          }
+          // 🔇 НЕТ АУДИО - микрофон полностью отключен
+          audio: false
         });
         
-        console.log("✅ Камера инициализирована, треки:", {
+        console.log("✅ Камера инициализирована (без звука), треки:", {
           video: stream.getVideoTracks().map(t => ({enabled: t.enabled, readyState: t.readyState})),
-          audio: false
+          audio: stream.getAudioTracks().length // Должно быть 0
         });
         
         setLocalStream(stream);
@@ -52,7 +51,7 @@ export const Lobby = ({ ws, playerId, players }) => {
         }
         
       } catch (err) {
-        console.error("❌ Ошибка доступа к камере/микрофону:", err);
+        console.error("❌ Ошибка доступа к камере:", err);
         setIsCameraOn(false);
         streamLockRef.current = false;
       }
@@ -69,7 +68,7 @@ export const Lobby = ({ ws, playerId, players }) => {
   }, [playerId]);
 
   // =========================
-  // 🔄 Управление WebRTC соединениями (УПРОЩЕННОЕ)
+  // 🔄 Управление WebRTC соединениями (БЕЗ АУДИО)
   // =========================
   useEffect(() => {
     if (!ws || !localStream) {
@@ -99,7 +98,7 @@ export const Lobby = ({ ws, playerId, players }) => {
   }, [players, localStream, ws, playerId]);
 
   // =========================
-  // 🔗 Создание PeerConnection (ИСПРАВЛЕННОЕ)
+  // 🔗 Создание PeerConnection (БЕЗ АУДИО)
   // =========================
   const createPeerConnection = (remoteId) => {
     if (peersRef.current[remoteId]) {
@@ -107,7 +106,7 @@ export const Lobby = ({ ws, playerId, players }) => {
       return peersRef.current[remoteId];
     }
 
-    console.log(`🎯 Создаем RTCPeerConnection для ${remoteId}`);
+    console.log(`🎯 Создаем RTCPeerConnection для ${remoteId} (без аудио)`);
     
     const pc = new RTCPeerConnection({
       iceServers: [
@@ -119,25 +118,39 @@ export const Lobby = ({ ws, playerId, players }) => {
       rtcpMuxPolicy: 'require'
     });
 
-    // 🔥 ВАЖНО: Добавляем локальные треки
+    // 🔥 ВАЖНО: Добавляем только видео треки
     if (localStream) {
-      localStream.getTracks().forEach(track => {
-        console.log(`📤 Добавляем локальный трек ${track.kind} для ${remoteId}`);
+      // 🔇 Добавляем только видео треки, игнорируем аудио
+      const videoTracks = localStream.getVideoTracks();
+      videoTracks.forEach(track => {
+        console.log(`📤 Добавляем локальный видео трек для ${remoteId}`);
         pc.addTrack(track, localStream);
       });
+      
+      // 🔇 НЕ добавляем аудио треки - их нет в потоке
+      console.log(`🔇 Аудио треки не добавлены (отключено): ${localStream.getAudioTracks().length}`);
     }
 
     // 📹 Обработка входящих потоков
     pc.ontrack = (event) => {
-      console.log(`📹 Получен удаленный поток от ${remoteId}`, event.streams[0]);
+      console.log(`📹 Получен удаленный поток от ${remoteId}`, {
+        streams: event.streams.length,
+        videoTracks: event.streams[0]?.getVideoTracks().length || 0,
+        audioTracks: event.streams[0]?.getAudioTracks().length || 0
+      });
       
       if (event.streams && event.streams[0]) {
         const remoteStream = event.streams[0];
         
+        // 🔇 Принудительно отключаем аудио в полученном потоке
+        remoteStream.getAudioTracks().forEach(track => {
+          track.enabled = false;
+          console.log(`🔇 Отключен аудио трек от ${remoteId}`);
+        });
+        
         // Создаем видео элемент если его нет
         if (!videoRefs.current[remoteId]) {
           console.log(`🎥 Создаем видео элемент для ${remoteId}`);
-          // Элемент будет создан в render
         }
         
         // Ждем немного чтобы элемент успел создаться в DOM
@@ -146,9 +159,10 @@ export const Lobby = ({ ws, playerId, players }) => {
             const videoElement = videoRefs.current[remoteId];
             videoElement.srcObject = remoteStream;
             videoElement.playsInline = true;
+            videoElement.muted = true; // 🔇 Всегда отключаем звук
             
             videoElement.play().then(() => {
-              console.log(`✅ Видео воспроизводится для ${remoteId}`);
+              console.log(`✅ Видео воспроизводится для ${remoteId} (без звука)`);
             }).catch(err => {
               console.warn(`⚠️ Автоплей заблокирован для ${remoteId}:`, err);
             });
@@ -187,9 +201,10 @@ export const Lobby = ({ ws, playerId, players }) => {
       
       setTimeout(async () => {
         try {
+          // 🔇 В офере указываем, что не хотим получать аудио
           const offer = await pc.createOffer({
-            offerToReceiveAudio: false,
-            offerToReceiveVideo: true
+            offerToReceiveAudio: false, // 🔇 НЕ получать аудио
+            offerToReceiveVideo: true   // ✅ Получать видео
           });
           await pc.setLocalDescription(offer);
           
@@ -199,11 +214,11 @@ export const Lobby = ({ ws, playerId, players }) => {
             signal: offer
           }));
           
-          console.log(`📤 Offer отправлен для ${remoteId}`);
+          console.log(`📤 Offer отправлен для ${remoteId} (без аудио)`);
         } catch (error) {
           console.error(`❌ Ошибка создания offer для ${remoteId}:`, error);
         }
-      }, 1000); // Небольшая задержка для стабильности
+      }, 1000);
     }
 
     peersRef.current[remoteId] = pc;
@@ -211,7 +226,7 @@ export const Lobby = ({ ws, playerId, players }) => {
   };
 
   // =========================
-  // 📡 Обработка WebRTC сигналов (ИСПРАВЛЕННАЯ)
+  // 📡 Обработка WebRTC сигналов
   // =========================
   useEffect(() => {
     if (!ws) return;
@@ -234,7 +249,11 @@ export const Lobby = ({ ws, playerId, players }) => {
               console.log(`📥 Получен offer от ${data.fromId}`);
               await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
               
-              const answer = await pc.createAnswer();
+              // 🔇 В answer тоже указываем, что не хотим аудио
+              const answer = await pc.createAnswer({
+                offerToReceiveAudio: false, // 🔇 НЕ получать аудио
+                offerToReceiveVideo: true   // ✅ Получать видео
+              });
               await pc.setLocalDescription(answer);
               
               ws.send(JSON.stringify({
@@ -243,7 +262,7 @@ export const Lobby = ({ ws, playerId, players }) => {
                 signal: answer
               }));
               
-              console.log(`📤 Answer отправлен для ${data.fromId}`);
+              console.log(`📤 Answer отправлен для ${data.fromId} (без аудио)`);
               
             } else if (data.signal.type === "answer") {
               console.log(`📥 Получен answer от ${data.fromId}`);
@@ -267,7 +286,7 @@ export const Lobby = ({ ws, playerId, players }) => {
   }, [ws, localStream]);
 
   // =========================
-  // 🎛️ Управление камерой
+  // 🎛️ Управление камерой (только видео)
   // =========================
   const toggleCamera = () => {
     if (!localStream) return;
@@ -278,6 +297,8 @@ export const Lobby = ({ ws, playerId, players }) => {
       setIsCameraOn(videoTrack.enabled);
       console.log(`📹 Камера ${videoTrack.enabled ? 'включена' : 'выключена'}`);
     }
+    
+    // 🔇 Аудио треков нет, поэтому ничего не делаем с микрофоном
   };
 
   // =========================
@@ -315,14 +336,14 @@ export const Lobby = ({ ws, playerId, players }) => {
                   // Если это локальный игрок и есть поток - сразу подключаем
                   if (player.id === playerId && localStream) {
                     el.srcObject = localStream;
-                    el.muted = true;
+                    el.muted = true; // 🔇 Всегда отключаем звук
                     el.play().catch(console.warn);
                   }
                 }
               }}
               autoPlay
               playsInline
-              muted={player.id === playerId}
+              muted={true} // 🔇 Все видео без звука
               className="player-video"
             />
             <div className="player-info">
@@ -330,6 +351,7 @@ export const Lobby = ({ ws, playerId, players }) => {
               <div className="player-status">
                 {peersRef.current[player.id]?.connectionState === 'connected' ? '🟢' : '🟡'}
                 {player.ready ? ' ✅' : ' ⏳'}
+                {' 🔇'} {/* 🔇 Показываем, что звук отключен */}
               </div>
             </div>
             
@@ -347,11 +369,12 @@ export const Lobby = ({ ws, playerId, players }) => {
           onClick={toggleCamera}
           className={`control-btn ${isCameraOn ? 'active' : 'inactive'}`}
         >
-          {isCameraOn ? "📹 Выкл" : "📹❌ Вкл"}
+          {isCameraOn ? "📹 Выкл камеру" : "📹❌ Вкл камеру"}
         </button>
         
         <div className="status-info">
           <span>Соединения: {Object.values(peersRef.current).filter(pc => pc.connectionState === 'connected').length}</span>
+          <span className="no-audio-badge">🔇 Без звука</span>
         </div>
       </div>
     </div>
