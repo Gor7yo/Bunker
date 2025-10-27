@@ -527,13 +527,15 @@ export const Lobby = ({ ws, playerId, players }) => {
           {isCameraOn ? "📹 Выкл" : "📹❌ Вкл"}
         </button>
         
-        {/* Кнопка для просмотра своих характеристик */}
-        <button 
-          onClick={() => setMyCharacteristicsModal(true)}
-          className="control-btn my-characteristics-btn"
-        >
-          🎴 Мои карты
-        </button>
+        {/* Кнопка для просмотра своих характеристик (только для игроков) */}
+        {!isHost && (
+          <button 
+            onClick={() => setMyCharacteristicsModal(true)}
+            className="control-btn my-characteristics-btn"
+          >
+            🎴 Мои карты
+          </button>
+        )}
         
         {/* Кнопка для админа */}
         {isHost && (
