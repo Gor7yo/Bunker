@@ -679,6 +679,87 @@
   background: #e59400;
 }
 
+/* Стили для кнопки "Мои карты" */
+.my-characteristics-btn {
+  background: #4CAF50 !important;
+  color: white !important;
+}
+
+.my-characteristics-btn:hover {
+  background: #45a049 !important;
+}
+
+/* Модальное окно для просмотра своих характеристик */
+.my-characteristics-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1003;
+}
+
+.my-characteristics-modal {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 900px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.my-characteristics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.my-characteristics-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 24px;
+}
+
+.my-characteristics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 15px;
+}
+
+.my-characteristic-card {
+  background: #f8f9fa;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  padding: 15px;
+  transition: all 0.3s ease;
+}
+
+.my-characteristic-card.revealed {
+  border-color: #28a745;
+  background: #d4edda;
+}
+
+.my-characteristic-card.hidden {
+  border-color: #dc3545;
+  background: #f8d7da;
+}
+
+.characteristic-description {
+  margin-top: 8px;
+  color: #666;
+  font-size: 13px;
+  font-style: italic;
+}
+
 /* Стили для изгнания игрока */
 .ban-btn {
   position: absolute;

@@ -10,6 +10,7 @@ export const Lobby = ({ ws, playerId, players }) => {
   const [selectedPlayerForAdmin, setSelectedPlayerForAdmin] = useState(null);
   const [actionCardModal, setActionCardModal] = useState(null); // {playerId, card}
   const [bannedPlayers, setBannedPlayers] = useState(new Set()); // Set из ID изгнанных игроков
+  const [myCharacteristicsModal, setMyCharacteristicsModal] = useState(false);
   const peersRef = useRef({});
   const videoRefs = useRef({});
   const isInitialized = useRef(false);
@@ -526,6 +527,14 @@ export const Lobby = ({ ws, playerId, players }) => {
           {isCameraOn ? "📹 Выкл" : "📹❌ Вкл"}
         </button>
         
+        {/* Кнопка для просмотра своих характеристик */}
+        <button 
+          onClick={() => setMyCharacteristicsModal(true)}
+          className="control-btn my-characteristics-btn"
+        >
+          🎴 Мои карты
+        </button>
+        
         {/* Кнопка для админа */}
         {isHost && (
           <button 
@@ -643,6 +652,39 @@ export const Lobby = ({ ws, playerId, players }) => {
           onExecute={(actionType, parameters) => executeActionCard(actionType, parameters)}
           onClose={() => setActionCardModal(null)}
         />
+      )}
+
+      {/* Модальное окно для просмотра своих характеристик */}
+      {myCharacteristicsModal && (
+        <div className="my-characteristics-modal-overlay">
+          <div className="my-characteristics-modal">
+            <div className="my-characteristics-header">
+              <h2>🎴 Мои характеристики</h2>
+              <button className="close-btn" onClick={() => setMyCharacteristicsModal(false)}>
+                ✕
+              </button>
+            </div>
+            
+            <div className="my-characteristics-grid">
+              {players.find(p => p.id === playerId)?.characteristics && Object.entries(players.find(p => p.id === playerId).characteristics).map(([key, characteristic]) => (
+                <div key={key} className={`my-characteristic-card ${characteristic.revealed ? 'revealed' : 'hidden'}`}>
+                  <div className="characteristic-header">
+                    <h4>{getCategoryName(key)}</h4>
+                    <span className={`status ${characteristic.revealed ? 'revealed' : 'hidden'}`}>
+                      {characteristic.revealed ? '✅ Раскрыто' : '❌ Скрыто'}
+                    </span>
+                  </div>
+                  <div className="characteristic-content">
+                    <p><strong>Значение:</strong> {characteristic.value}</p>
+                    {characteristic.description && (
+                      <p className="characteristic-description"><em>{characteristic.description}</em></p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
