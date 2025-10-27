@@ -1,0 +1,66 @@
+/* Контейнер для характеристик игрока */
+.player-characteristics-container {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  max-width: 300px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  padding: 15px;
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  z-index: 100;
+}
+
+.characteristics-header h3 {
+  font-size: 1.2rem;
+  color: #4ecdc4;
+  margin: 0 0 15px 0;
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.characteristics-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.characteristic-item {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.characteristic-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #4ecdc4;
+}
+
+.category-name {
+  font-size: 0.8rem;
+  color: #4ecdc4;
+  font-weight: bold;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.characteristic-value {
+  font-size: 9px;
+  color: #bdc3c7;
+  min-height: 1.2em;
+  word-wrap: break-word;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .player-characteristics-container {
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    max-width: none;
+  }
+}

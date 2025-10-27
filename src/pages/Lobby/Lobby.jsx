@@ -1,10 +1,15 @@
 // Lobby.js - исправленная версия
 import React, { useState, useEffect, useRef } from "react";
 import "./Lobby.css";
+import { GameCharacteristics } from "../../components/GameCharacteristics/GameCharacteristics";
 
 export const Lobby = ({ ws, playerId, players }) => {
   const [localStream, setLocalStream] = useState(null);
   const [isCameraOn, setIsCameraOn] = useState(true);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [selectedPlayerForAdmin, setSelectedPlayerForAdmin] = useState(null);
+  const [actionCardModal, setActionCardModal] = useState(null); // {playerId, card}
+  const [bannedPlayers, setBannedPlayers] = useState(new Set()); // Set из ID изгнанных игроков
   const peersRef = useRef({});
   const videoRefs = useRef({});
   const isInitialized = useRef(false);
@@ -220,7 +225,23 @@ export const Lobby = ({ ws, playerId, players }) => {
       try {
         const data = JSON.parse(msg.data);
 
-        if (data.type === "signal" && data.fromId && data.signal) {
+        if (data.type === "game_started") {
+          console.log("🎮 Игра началась!");
+        } else if (data.type === "characteristic_revealed") {
+          console.log(`🎴 Характеристика раскрыта для игрока ${data.playerId}:`, data.characteristicType);
+          // Игроки обновятся автоматически через props
+        } else if (data.type === "player_banned") {
+          console.log(`🚫 Игрок ${data.playerId} ${data.banned ? 'изгнан' : 'возвращен'}`);
+          setBannedPlayers(prev => {
+            const newSet = new Set(prev);
+            if (data.banned) {
+              newSet.add(data.playerId);
+            } else {
+              newSet.delete(data.playerId);
+            }
+            return newSet;
+          });
+        } else if (data.type === "signal" && data.fromId && data.signal) {
           console.log(`📡 Сигнал от ${data.fromId}: ${data.signal.type}`);
           
           let pc = peersRef.current[data.fromId];
@@ -298,14 +319,90 @@ export const Lobby = ({ ws, playerId, players }) => {
     };
   }, []);
 
+  // Функция для получения названия категории
+  const getCategoryName = (key) => {
+    const categoryNames = {
+      'proffesion': 'Профессия',
+      'health': 'Здоровье',
+      'hobbie': 'Хобби',
+      'fobia': 'Фобия',
+      'bandage': 'Багаж',
+      'age': 'Возраст',
+      'fact': 'Факт',
+      'actions': 'Действие'
+    };
+    return categoryNames[key] || key;
+  };
+
+  // Функция для раскрытия характеристики
+  const revealCharacteristic = (playerId, characteristicKey) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'reveal_characteristic',
+        playerId: playerId,
+        characteristicType: characteristicKey
+      }));
+    }
+  };
+
+  // Функция для активации карты действия
+  const handleActivateActionCard = (playerId, card) => {
+    setActionCardModal({ playerId, card });
+  };
+
+  // Функция для обработки действия карты
+  const executeActionCard = (actionType, parameters) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'execute_action_card',
+        actionType: actionType,
+        parameters: parameters
+      }));
+    }
+    setActionCardModal(null);
+  };
+
+  // Функция для изгнания/возврата игрока
+  const toggleBanPlayer = (playerId) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'toggle_ban_player',
+        playerId: playerId
+      }));
+    }
+  };
+
+  const isHost = players.find(p => p.id === playerId)?.role === "host";
+
+  // Синхронизация выбранного игрока с актуальными данными
+  useEffect(() => {
+    if (selectedPlayerForAdmin) {
+      const updatedPlayer = players.find(p => p.id === selectedPlayerForAdmin.id);
+      if (updatedPlayer) {
+        setSelectedPlayerForAdmin(updatedPlayer);
+      }
+    }
+  }, [players, selectedPlayerForAdmin]);
+
   // =========================
   // 🎨 Рендер
   // =========================
   return (
     <div className="lobby-container">
       <div className="lobby-grid">
-        {players.filter(p => p.role !== "host").map((player) => (
+        {players.filter(p => p.role !== "host").map((player, index) => (
           <div key={player.id} className="player-video-card">
+            {/* Верхняя панель */}
+            <div className="player-top-bar">
+              <div className="player-number">{index + 1}</div>
+              <div className="player-nickname">{player.name}</div>
+              <div className="player-gradient-bar"></div>
+              <div className="player-avatar-icons">
+                <div className="avatar-icon"></div>
+                <div className="avatar-icon"></div>
+              </div>
+            </div>
+
             <video
               ref={(el) => {
                 if (el && !videoRefs.current[player.id]) {
@@ -323,15 +420,98 @@ export const Lobby = ({ ws, playerId, players }) => {
               autoPlay
               playsInline
               muted={player.id === playerId}
-              className="player-video"
+              className={`player-video ${bannedPlayers.has(player.id) ? 'banned' : ''}`}
             />
-            <div className="player-info">
-              <div className="player-name">{player.name}</div>
-              <div className="player-status">
-                {peersRef.current[player.id]?.connectionState === 'connected' ? '🟢' : '🟡'}
-                {player.ready ? ' ✅' : ' ⏳'}
-              </div>
+
+            {/* Панель характеристик */}
+            {player.characteristics && (
+              <>
+                <div className="characteristics-block-left">
+                  <div className="characteristic-item characteristic-profession">
+                    {player.characteristics.proffesion?.revealed ? (
+                      <span className="characteristic-value">{player.characteristics.proffesion.value}</span>
+                    ) : (
+                      <span className="characteristic-label">Профессия</span>
+                    )}
+                  </div>
+                  <div className="characteristic-item characteristic-health">
+                    {player.characteristics.health?.revealed ? (
+                      <span className="characteristic-value">{player.characteristics.health.value}</span>
+                    ) : (
+                      <span className="characteristic-label">Здоровье</span>
+                    )}
+                  </div>
+                  <div className="characteristic-item characteristic-hobby">
+                    {player.characteristics.hobbie?.revealed ? (
+                      <span className="characteristic-value">{player.characteristics.hobbie.value}</span>
+                    ) : (
+                      <span className="characteristic-label">Хобби</span>
+                    )}
+                  </div>
+                  <div className="characteristic-item characteristic-phobia">
+                    {player.characteristics.fobia?.revealed ? (
+                      <span className="characteristic-value">{player.characteristics.fobia.value}</span>
+                    ) : (
+                      <span className="characteristic-label">Фобия</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="characteristics-block-right">
+                  <div className="characteristic-item characteristic-baggage">
+                    {player.characteristics.bandage?.revealed ? (
+                      <span className="characteristic-value">{player.characteristics.bandage.value}</span>
+                    ) : (
+                      <span className="characteristic-label">Багаж</span>
+                    )}
+                  </div>
+                  <div className="characteristic-item characteristic-age">
+                    {player.characteristics.age?.revealed ? (
+                      <span className="characteristic-value">{player.characteristics.age.value}</span>
+                    ) : (
+                      <span className="characteristic-label">Возраст</span>
+                    )}
+                  </div>
+                  <div className="characteristic-item characteristic-fact">
+                    {player.characteristics.fact?.revealed ? (
+                      <span className="characteristic-value">{player.characteristics.fact.value}</span>
+                    ) : (
+                      <span className="characteristic-label">Факт</span>
+                    )}
+                  </div>
+                  <div className="characteristic-item characteristic-action">
+                    {player.characteristics.actions?.revealed ? (
+                      <span className="characteristic-value">{player.characteristics.actions.value}</span>
+                    ) : (
+                      <span className="characteristic-label">Действие</span>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+            
+            <div className="player-status">
+              {peersRef.current[player.id]?.connectionState === 'connected' ? '🟢' : '🟡'}
+              {player.ready ? ' ✅' : ' ⏳'}
             </div>
+
+            {/* Кнопка изгнания (только для админа) */}
+            {isHost && (
+              <button 
+                className={`ban-btn ${bannedPlayers.has(player.id) ? 'unban' : 'ban'}`}
+                onClick={() => toggleBanPlayer(player.id)}
+                title={bannedPlayers.has(player.id) ? 'Вернуть игрока' : 'Изгнать игрока'}
+              >
+                {bannedPlayers.has(player.id) ? '🔄' : '🚫'}
+              </button>
+            )}
+
+            {/* Надпись ИЗГНАН */}
+            {bannedPlayers.has(player.id) && (
+              <div className="banned-overlay">
+                <div className="banned-text">ИЗГНАН</div>
+              </div>
+            )}
             
             {player.id === playerId && !isCameraOn && (
               <div className="camera-off-overlay">
@@ -350,8 +530,226 @@ export const Lobby = ({ ws, playerId, players }) => {
           {isCameraOn ? "📹 Выкл" : "📹❌ Вкл"}
         </button>
         
+        {/* Кнопка для админа */}
+        {isHost && (
+          <button 
+            onClick={() => setIsAdminModalOpen(true)}
+            className="control-btn admin-btn"
+          >
+            🎴 Управление карточками
+          </button>
+        )}
+        
         <div className="status-info">
           <span>Соединения: {Object.values(peersRef.current).filter(pc => pc.connectionState === 'connected').length}</span>
+        </div>
+      </div>
+
+      {/* Компонент для работы с характеристиками игроков */}
+      {/* <GameCharacteristics 
+        ws={ws}
+        players={players}
+        playerId={playerId}
+        isHost={players.find(p => p.id === playerId)?.role === "host"}
+      /> */}
+
+      {/* Модальное окно для админа */}
+      {isAdminModalOpen && (
+        <div className="admin-modal-overlay">
+          <div className="admin-modal">
+            <div className="admin-modal-header">
+              <h2>🎴 Управление карточками игроков</h2>
+              <button 
+                className="close-btn"
+                onClick={() => setIsAdminModalOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="admin-players-list">
+              {players.filter(p => p.role !== 'host').map(player => (
+                <div key={player.id} className="admin-player-card">
+                  <div className="admin-player-info">
+                    <h3>{player.name}</h3>
+                  </div>
+                  
+                  <div className="admin-player-actions">
+                    <button 
+                      className="view-btn"
+                      onClick={() => setSelectedPlayerForAdmin(player)}
+                    >
+                      👁️ Просмотр
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно просмотра карточек игрока */}
+      {selectedPlayerForAdmin && (
+        <div className="player-cards-modal-overlay">
+          <div className="player-cards-modal">
+            <div className="player-cards-header">
+              <h2>Карточки игрока: {selectedPlayerForAdmin.name}</h2>
+              <button 
+                className="close-btn"
+                onClick={() => setSelectedPlayerForAdmin(null)}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="player-cards-grid">
+              {selectedPlayerForAdmin.characteristics && Object.entries(selectedPlayerForAdmin.characteristics).map(([key, characteristic]) => (
+                <div key={key} className={`admin-characteristic-card ${characteristic.revealed ? 'revealed' : 'hidden'}`}>
+                  <div className="characteristic-header">
+                    <h4>{getCategoryName(key)}</h4>
+                    <span className={`status ${characteristic.revealed ? 'revealed' : 'hidden'}`}>
+                      {characteristic.revealed ? '✅ Раскрыто' : '❌ Скрыто'}
+                    </span>
+                  </div>
+                  <div className="characteristic-content">
+                    <p><strong>Значение:</strong> {characteristic.value}</p>
+                    {!characteristic.revealed && (
+                      <button 
+                        className="reveal-btn"
+                        onClick={() => revealCharacteristic(selectedPlayerForAdmin.id, key)}
+                      >
+                        🔓 Раскрыть
+                      </button>
+                    )}
+                    {/* Кнопка активации карты действия */}
+                    {key === 'actions' && characteristic.revealed && (
+                      <button 
+                        className="activate-action-btn"
+                        onClick={() => handleActivateActionCard(selectedPlayerForAdmin.id, characteristic)}
+                      >
+                        ⚡ Активировать
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно для активации карты действия */}
+      {actionCardModal && (
+        <ActionCardModal
+          card={actionCardModal.card}
+          players={players}
+          onExecute={(actionType, parameters) => executeActionCard(actionType, parameters)}
+          onClose={() => setActionCardModal(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+// Компонент модального окна для карт действий
+const ActionCardModal = ({ card, players, onExecute, onClose }) => {
+  const [selectedPlayers, setSelectedPlayers] = useState([]);
+  const [selectedCharacteristics, setSelectedCharacteristics] = useState(null);
+  
+  const handleSubmit = () => {
+    // Логика в зависимости от типа карты
+    const cardName = card.value;
+    
+    // Вызываем базовую функцию выполнения
+    onExecute(cardName, {
+      selectedPlayers,
+      selectedCharacteristics
+    });
+  };
+
+  const renderCardUI = () => {
+    const cardName = card.value;
+    
+    // Карты, требующие выбора одного игрока
+    if (card.description.includes("выбери одного игрока") || 
+        card.description.includes("Выбери одного игрока")) {
+      return (
+        <div>
+          <p className="card-description">{card.description}</p>
+          <div className="player-selection">
+            <h4>Выберите игрока:</h4>
+            <select 
+              value={selectedPlayers[0] || ""} 
+              onChange={(e) => setSelectedPlayers([e.target.value])}
+              className="player-select"
+            >
+              <option value="">-- Выберите игрока --</option>
+              {players.filter(p => p.role !== 'host').map(player => (
+                <option key={player.id} value={player.id}>{player.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      );
+    }
+
+    // Карты, требующие выбора двух игроков
+    if (card.description.includes("выбери двух игроков")) {
+      return (
+        <div>
+          <p className="card-description">{card.description}</p>
+          <div className="player-selection">
+            <h4>Выберите двух игроков:</h4>
+            <select 
+              value={selectedPlayers[0] || ""} 
+              onChange={(e) => setSelectedPlayers([e.target.value, selectedPlayers[1]])}
+              className="player-select"
+            >
+              <option value="">-- Игрок 1 --</option>
+              {players.filter(p => p.role !== 'host').map(player => (
+                <option key={player.id} value={player.id}>{player.name}</option>
+              ))}
+            </select>
+            <select 
+              value={selectedPlayers[1] || ""} 
+              onChange={(e) => setSelectedPlayers([selectedPlayers[0], e.target.value])}
+              className="player-select"
+            >
+              <option value="">-- Игрок 2 --</option>
+              {players.filter(p => p.role !== 'host').map(player => (
+                <option key={player.id} value={player.id}>{player.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      );
+    }
+
+    // Карты без дополнительных параметров (просто подтверждение)
+    return (
+      <div>
+        <p className="card-description">{card.description}</p>
+        <p className="card-warning">⚠️ Вы уверены, что хотите активировать эту карту?</p>
+      </div>
+    );
+  };
+
+  return (
+    <div className="action-card-modal-overlay">
+      <div className="action-card-modal">
+        <div className="action-card-header">
+          <h2>🎴 Карта действия: {card.value}</h2>
+          <button className="close-btn" onClick={onClose}>✕</button>
+        </div>
+        
+        <div className="action-card-content">
+          {renderCardUI()}
+        </div>
+
+        <div className="action-card-actions">
+          <button className="cancel-btn" onClick={onClose}>Отмена</button>
+          <button className="execute-btn" onClick={handleSubmit}>⚡ Выполнить</button>
         </div>
       </div>
     </div>

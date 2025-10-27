@@ -3,34 +3,31 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #1a1a1a;
+  background: #f5f5f5;
+  padding: 10px;
+  width: 100%;
 }
 
 .lobby-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(2, 1fr);
+  grid-template-columns: repeat(4, 461px);
+  grid-auto-rows: 261px;
   gap: 10px;
   flex: 1;
-  padding: 10px;
+  justify-content: center;
   box-sizing: border-box;
 }
 
 .player-video-card {
   position: relative;
-  background: #222;
-  border-radius: 10px;
+  width: 461px;
+  height: 261px;
+  background: #e0e0e0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-  border: 2px solid transparent;
-  transition: border-color 0.3s ease;
-}
-
-.player-video-card:hover {
-  border-color: #4a9eff;
+  border: 2px solid #ffa500;
+  border-radius: 0;
 }
 
 .player-video {
@@ -40,54 +37,201 @@
   background: #333;
 }
 
-.player-name {
+/* Верхняя панель с номером и ником */
+.player-top-bar {
   position: absolute;
-  bottom: 5px;
-  left: 5px;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 70px;
+  z-index: 10;
+}
+
+.player-number {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  width: 28px;
+  height: 28px;
+  background: #2a2a2a;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+  border-radius: 4px;
+}
+
+.player-nickname {
+  position: absolute;
+  left: 45px;
+  top: 12px;
   color: white;
   font-weight: bold;
-  text-shadow: 0 0 5px black;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-size: 14px;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
 }
 
-.player-role {
+.player-gradient-bar {
   position: absolute;
-  top: 5px;
-  right: 5px;
-  color: yellow;
-  font-weight: bold;
-  text-shadow: 0 0 5px black;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 2px 6px;
+  top: 45px;
+  left: 0;
+  width: 70%;
+  height: 10px;
+  background: linear-gradient(to right, #ff6347, #8b0000, #9b59b6, #dda0dd);
+  border-radius: 2px;
+}
+
+.player-avatar-icons {
+  position: absolute;
+  left: 8px;
+  top: 58px;
+  display: flex;
+  gap: 6px;
+}
+
+.avatar-icon {
+  width: 26px;
+  height: 26px;
+  background: #2a2a2a;
   border-radius: 4px;
 }
 
-
-@keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
+/* Компактные блоки характеристик */
+.characteristics-block-left {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: calc(50% - 4px);
+  background: rgba(224, 224, 224, 0);
+  padding: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  z-index: 10;
 }
 
+.characteristics-block-right {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: calc(50% - 4px);
+  background: rgba(224, 224, 224, 0);
+  padding: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  z-index: 10;
+}
+
+.characteristic-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 1px 3px;
+  border-radius: 2px;
+  min-height: 14px;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+  font-size: 8px;
+}
+
+.characteristic-item:hover {
+  opacity: 1;
+}
+
+.characteristic-label {
+  font-size: 8px;
+  color: #444;
+  font-weight: bold;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.characteristic-value {
+  font-size: 10px;
+  font-weight: bold;
+  word-wrap: break-word;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Цветовая схема характеристик по классам */
+.characteristic-profession .characteristic-label,
+.characteristic-profession .characteristic-value {
+  color: #ffa500; /* Профессия - оранжевый */
+}
+
+.characteristic-age .characteristic-label,
+.characteristic-age .characteristic-value {
+  color: #ff0000; /* Возраст - красный */
+}
+
+.characteristic-health .characteristic-label,
+.characteristic-health .characteristic-value {
+  color: #00aa00; /* Здоровье - зеленый */
+}
+
+.characteristic-phobia .characteristic-label,
+.characteristic-phobia .characteristic-value {
+  color: #800080; /* Фобия - фиолетовый */
+}
+
+.characteristic-hobby .characteristic-label,
+.characteristic-hobby .characteristic-value {
+  color: #00aaff; /* Хобби - голубой */
+}
+
+.characteristic-baggage .characteristic-label,
+.characteristic-baggage .characteristic-value {
+  color: #0000ff; /* Багаж - синий */
+}
+
+.characteristic-fact .characteristic-label,
+.characteristic-fact .characteristic-value {
+  color: #000080; /* Факт - темно-синий */
+}
+
+.characteristic-action .characteristic-label,
+.characteristic-action .characteristic-value {
+  color: #ff69b4; /* Действие - розовый */
+}
+
+/* Статус игрока */
+.player-status {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: white;
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 5px 8px;
+  border-radius: 4px;
+  z-index: 15;
+}
+
+/* Оверлей когда камера выключена */
 .camera-off-overlay {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   color: white;
-}
-
-.camera-off-icon {
-  font-size: 2em;
-  margin-bottom: 10px;
+  z-index: 20;
 }
 
 .camera-off-text {
@@ -95,13 +239,14 @@
   text-align: center;
 }
 
+/* Панель управления */
 .controls-panel {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 15px 20px;
-  background: #2a2a2a;
-  border-top: 1px solid #444;
+  background: #e0e0e0;
+  border-top: 2px solid #ffa500;
 }
 
 .control-btn {
@@ -135,50 +280,9 @@
   background: #777;
 }
 
-.debug-btn {
-  background: #ff6b6b;
-  font-size: 14px;
-  padding: 8px 16px;
-}
-
-.debug-btn:hover {
-  background: #ff5252;
-}
-
-.connection-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #4a9eff;
+.status-info {
+  color: #444;
   font-weight: 500;
-}
-
-.host-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #ff6b6b;
-  font-weight: 500;
-  background: rgba(255, 107, 107, 0.1);
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 107, 107, 0.3);
-}
-
-.host-indicator {
-  font-size: 16px;
-  animation: pulse 2s infinite;
-}
-
-.status-indicator {
-  font-size: 12px;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.5; }
-  100% { opacity: 1; }
 }
 
 /* Адаптивность для мобильных устройств */
@@ -193,4 +297,462 @@
     gap: 10px;
     padding: 10px;
   }
+
+  .player-characteristics-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Стили для админской кнопки */
+.admin-btn {
+  background: #ff6b35 !important;
+  color: white !important;
+  border: 2px solid #e55a2b !important;
+}
+
+.admin-btn:hover {
+  background: #e55a2b !important;
+  transform: translateY(-1px);
+}
+
+/* Модальное окно для админа */
+.admin-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.admin-modal {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.admin-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.admin-modal-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 24px;
+}
+
+.close-btn {
+  background: #ff4757;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  background: #ff3742;
+}
+
+.admin-players-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+}
+
+.admin-player-card {
+  background: #f8f9fa;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  padding: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+
+.admin-player-card:hover {
+  border-color: #ffa500;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 165, 0, 0.2);
+}
+
+.admin-player-info h3 {
+  margin: 0 0 5px 0;
+  color: #333;
+  font-size: 18px;
+}
+
+.player-id {
+  color: #666;
+  font-size: 12px;
+}
+
+.view-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s ease;
+}
+
+.view-btn:hover {
+  background: #0056b3;
+}
+
+/* Модальное окно карточек игрока */
+.player-cards-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1001;
+}
+
+.player-cards-modal {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 800px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.player-cards-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.player-cards-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 22px;
+}
+
+.player-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 15px;
+}
+
+.admin-characteristic-card {
+  background: #f8f9fa;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  padding: 15px;
+  transition: all 0.3s ease;
+}
+
+.admin-characteristic-card.revealed {
+  border-color: #28a745;
+  background: #d4edda;
+}
+
+.admin-characteristic-card.hidden {
+  border-color: #dc3545;
+  background: #f8d7da;
+}
+
+.characteristic-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.characteristic-header h4 {
+  margin: 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.status {
+  font-size: 12px;
+  font-weight: bold;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.status.revealed {
+  background: #28a745;
+  color: white;
+}
+
+.status.hidden {
+  background: #dc3545;
+  color: white;
+}
+
+.characteristic-content p {
+  margin: 0 0 10px 0;
+  color: #555;
+  font-size: 14px;
+}
+
+.reveal-btn {
+  background: #ffa500;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s ease;
+}
+
+.reveal-btn:hover {
+  background: #e59400;
+}
+
+/* Стили для активации карты действия */
+.activate-action-btn {
+  background: #ff00ff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 10px;
+  transition: background 0.3s ease;
+}
+
+.activate-action-btn:hover {
+  background: #cc00cc;
+}
+
+/* Модальное окно карты действия */
+.action-card-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1002;
+}
+
+.action-card-modal {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.action-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.action-card-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 20px;
+}
+
+.action-card-content {
+  margin: 20px 0;
+}
+
+.card-description {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  color: #555;
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 15px;
+}
+
+.card-warning {
+  color: #ff6b35;
+  font-weight: bold;
+  text-align: center;
+  font-size: 14px;
+}
+
+.player-selection {
+  margin: 20px 0;
+}
+
+.player-selection h4 {
+  margin-bottom: 10px;
+  color: #333;
+  font-size: 16px;
+}
+
+.player-select {
+  width: 100%;
+  padding: 10px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.player-select:focus {
+  outline: none;
+  border-color: #ffa500;
+}
+
+.action-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 2px solid #f0f0f0;
+}
+
+.cancel-btn {
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s ease;
+}
+
+.cancel-btn:hover {
+  background: #5a6268;
+}
+
+.execute-btn {
+  background: #ffa500;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  transition: background 0.3s ease;
+}
+
+.execute-btn:hover {
+  background: #e59400;
+}
+
+/* Стили для изгнания игрока */
+.ban-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 35px;
+  height: 35px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 25;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.ban-btn.ban {
+  background: #ff4757;
+}
+
+.ban-btn.ban:hover {
+  background: #ff3742;
+  transform: scale(1.1);
+}
+
+.ban-btn.unban {
+  background: #26de81;
+}
+
+.ban-btn.unban:hover {
+  background: #20c470;
+  transform: scale(1.1);
+}
+
+/* Оверлей для изгнанных игроков */
+.banned-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  border: 3px solid #ff0000;
+}
+
+.banned-text {
+  color: #ff0000;
+  font-size: 48px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 8px;
+  text-shadow: 0 0 20px #ff0000;
+  animation: pulse 2s 1;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+/* Скрытие видео при изгнании */
+.player-video.banned {
+  display: none;
 }
