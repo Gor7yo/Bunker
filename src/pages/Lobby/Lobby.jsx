@@ -24,7 +24,7 @@ export const Lobby = ({ ws, playerId, players }) => {
 
     async function initCamera() {
       try {
-        console.log("🎥 Запуск инициализации камеры...");
+        console.log("🎥 Зaпуск инициализации камеры...");
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
             width: { ideal: 640 }, 
