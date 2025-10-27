@@ -31,11 +31,7 @@ export const Lobby = ({ ws, playerId, players }) => {
             height: { ideal: 480 },
             frameRate: { ideal: 30 }
           },
-          audio: {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false
-          }
+          audio: false
         });
         
         console.log("✅ Камера инициализирована, треки:", {
