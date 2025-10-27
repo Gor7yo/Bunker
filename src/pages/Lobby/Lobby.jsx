@@ -393,11 +393,6 @@ export const Lobby = ({ ws, playerId, players }) => {
             <div className="player-top-bar">
               <div className="player-number">{index + 1}</div>
               <div className="player-nickname">{player.name}</div>
-              <div className="player-gradient-bar"></div>
-              <div className="player-avatar-icons">
-                <div className="avatar-icon"></div>
-                <div className="avatar-icon"></div>
-              </div>
             </div>
 
             <video
@@ -487,10 +482,10 @@ export const Lobby = ({ ws, playerId, players }) => {
               </>
             )}
             
-            <div className="player-status">
+            {isHost && <div className="player-status">
               {peersRef.current[player.id]?.connectionState === 'connected' ? '🟢' : '🟡'}
               {player.ready ? ' ✅' : ' ⏳'}
-            </div>
+            </div>}
 
             {/* Кнопка изгнания (только для админа) */}
             {isHost && (
