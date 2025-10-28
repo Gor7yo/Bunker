@@ -10,6 +10,7 @@
 }
 
 .lobby-grid {
+  padding: 12px 12px;
   display: grid;
   grid-template-columns: repeat(4, 461px);
   grid-auto-rows: 261px;
