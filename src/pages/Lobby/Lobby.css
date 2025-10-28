@@ -46,7 +46,6 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 70px;
   z-index: 10;
   background: linear-gradient(90deg, #ff8c00 0%, #ffa500 100%);
   color: #000000;
@@ -109,14 +108,12 @@
   bottom: 0;
   left: 0;
   width: calc(50% - 4px);
-  background: rgba(255, 255, 255, 0.05);
   padding: 2px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 1px;
   z-index: 10;
-  border-right: 1px solid #555555;
 }
 
 .characteristics-block-right {
@@ -124,14 +121,12 @@
   bottom: 0;
   right: 0;
   width: calc(50% - 4px);
-  background: rgba(255, 255, 255, 0.05);
   padding: 2px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 1px;
   z-index: 10;
-  border-left: 1px solid #555555;
 }
 
 .characteristic-item {
