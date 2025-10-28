@@ -3,9 +3,10 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #f5f5f5;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
   padding: 10px;
   width: 100%;
+  color: #ffffff;
 }
 
 .lobby-grid {
@@ -16,18 +17,20 @@
   flex: 1;
   justify-content: center;
   box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.3);
 }
 
 .player-video-card {
   position: relative;
   width: 461px;
   height: 261px;
-  background: #e0e0e0;
+  background: #2a2a2a;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border: 2px solid #ffa500;
+  border: 3px solid #ff8c00;
   border-radius: 0;
+  box-shadow: 0 4px 15px rgba(255, 140, 0, 0.3);
 }
 
 .player-video {
@@ -45,6 +48,8 @@
   right: 0;
   height: 70px;
   z-index: 10;
+  background: linear-gradient(90deg, #ff8c00 0%, #ffa500 100%);
+  color: #000000;
 }
 
 .player-number {
@@ -104,13 +109,14 @@
   bottom: 0;
   left: 0;
   width: calc(50% - 4px);
-  background: rgba(224, 224, 224, 0);
+  background: rgba(255, 255, 255, 0.05);
   padding: 2px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 1px;
   z-index: 10;
+  border-right: 1px solid #555555;
 }
 
 .characteristics-block-right {
@@ -118,13 +124,14 @@
   bottom: 0;
   right: 0;
   width: calc(50% - 4px);
-  background: rgba(224, 224, 224, 0);
+  background: rgba(255, 255, 255, 0.05);
   padding: 2px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 1px;
   z-index: 10;
+  border-left: 1px solid #555555;
 }
 
 .characteristic-item {
@@ -137,6 +144,7 @@
   opacity: 0.5;
   transition: opacity 0.2s ease;
   font-size: 8px;
+  color: #ffffff;
 }
 
 .characteristic-item:hover {
@@ -245,16 +253,16 @@
   justify-content: space-between;
   align-items: center;
   padding: 15px 20px;
-  background: #e0e0e0;
-  border-top: 2px solid #ffa500;
+  background: rgba(0, 0, 0, 0.6);
+  border-top: 2px solid #ff8c00;
 }
 
 .control-btn {
-  background: #4a9eff;
-  border: none;
+  background: #333333;
+  border: 2px solid #555555;
   border-radius: 8px;
   padding: 12px 20px;
-  color: white;
+  color: #ffffff;
   font-size: 16px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -264,16 +272,20 @@
 }
 
 .control-btn:hover {
-  background: #3a8eef;
+  background: #444444;
+  border-color: #ff8c00;
   transform: translateY(-2px);
 }
 
 .control-btn.active {
-  background: #4a9eff;
+  background: #ff8c00;
+  color: #000000;
+  border-color: #ff8c00;
 }
 
 .control-btn.inactive {
-  background: #666;
+  background: #e74c3c;
+  border-color: #c0392b;
 }
 
 .control-btn.inactive:hover {
@@ -305,13 +317,14 @@
 
 /* Стили для админской кнопки */
 .admin-btn {
-  background: #ff6b35 !important;
-  color: white !important;
-  border: 2px solid #e55a2b !important;
+  background: #ff8c00 !important;
+  color: #000000 !important;
+  border: 2px solid #ff8c00 !important;
 }
 
 .admin-btn:hover {
-  background: #e55a2b !important;
+  background: #ffa500 !important;
+  border-color: #ffa500 !important;
   transform: translateY(-1px);
 }
 
@@ -330,7 +343,7 @@
 }
 
 .admin-modal {
-  background: white;
+  background: #2a2a2a;
   border-radius: 12px;
   padding: 20px;
   max-width: 600px;
@@ -338,6 +351,8 @@
   max-height: 80vh;
   overflow-y: auto;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  border: 2px solid #ff8c00;
+  color: #ffffff;
 }
 
 .admin-modal-header {
@@ -346,13 +361,32 @@
   align-items: center;
   margin-bottom: 20px;
   padding-bottom: 15px;
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 2px solid #555555;
+  background: linear-gradient(90deg, #ff8c00 0%, #ffa500 100%);
+  color: #000000;
+  padding: 15px;
+  margin: -20px -20px 20px -20px;
+  border-radius: 10px 10px 0 0;
 }
 
 .admin-modal-header h2 {
   margin: 0;
-  color: #333;
+  color: #000000;
   font-size: 24px;
+}
+
+.close-btn {
+  background: #ff4757;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .close-btn {
@@ -380,8 +414,8 @@
 }
 
 .admin-player-card {
-  background: #f8f9fa;
-  border: 2px solid #e9ecef;
+  background: #333333;
+  border: 2px solid #555555;
   border-radius: 8px;
   padding: 15px;
   display: flex;
@@ -396,15 +430,32 @@
   box-shadow: 0 4px 12px rgba(255, 165, 0, 0.2);
 }
 
+.admin-player-card:hover {
+  border-color: #ff8c00;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 140, 0, 0.2);
+}
+
 .admin-player-info h3 {
   margin: 0 0 5px 0;
-  color: #333;
+  color: #ffffff;
   font-size: 18px;
 }
 
 .player-id {
-  color: #666;
+  color: #cccccc;
   font-size: 12px;
+}
+
+.view-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s ease;
 }
 
 .view-btn {
@@ -469,21 +520,21 @@
 }
 
 .admin-characteristic-card {
-  background: #f8f9fa;
-  border: 2px solid #e9ecef;
+  background: #333333;
+  border: 2px solid #555555;
   border-radius: 8px;
   padding: 15px;
   transition: all 0.3s ease;
 }
 
 .admin-characteristic-card.revealed {
-  border-color: #28a745;
-  background: #d4edda;
+  border-color: #ff8c00;
+  background: #444444;
 }
 
 .admin-characteristic-card.hidden {
-  border-color: #dc3545;
-  background: #f8d7da;
+  border-color: #666666;
+  background: #2a2a2a;
 }
 
 .characteristic-header {
@@ -495,7 +546,7 @@
 
 .characteristic-header h4 {
   margin: 0;
-  color: #333;
+  color: #ffffff;
   font-size: 16px;
 }
 
@@ -507,24 +558,24 @@
 }
 
 .status.revealed {
-  background: #28a745;
-  color: white;
+  background: #ff8c00;
+  color: #000000;
 }
 
 .status.hidden {
-  background: #dc3545;
-  color: white;
+  background: #666666;
+  color: #ffffff;
 }
 
 .characteristic-content p {
   margin: 0 0 10px 0;
-  color: #555;
+  color: #ffffff;
   font-size: 14px;
 }
 
 .reveal-btn {
-  background: #ffa500;
-  color: white;
+  background: #ff8c00;
+  color: #000000;
   border: none;
   border-radius: 6px;
   padding: 8px 16px;
@@ -534,12 +585,12 @@
 }
 
 .reveal-btn:hover {
-  background: #e59400;
+  background: #ffa500;
 }
 
 /* Стили для активации карты действия */
 .activate-action-btn {
-  background: #ff00ff;
+  background: #ff69b4;
   color: white;
   border: none;
   border-radius: 6px;
@@ -551,7 +602,7 @@
 }
 
 .activate-action-btn:hover {
-  background: #cc00cc;
+  background: #ff1493;
 }
 
 /* Модальное окно карты действия */
@@ -569,7 +620,7 @@
 }
 
 .action-card-modal {
-  background: white;
+  background: #2a2a2a;
   border-radius: 12px;
   padding: 20px;
   max-width: 600px;
@@ -577,6 +628,8 @@
   max-height: 80vh;
   overflow-y: auto;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  border: 2px solid #ff8c00;
+  color: #ffffff;
 }
 
 .action-card-header {
@@ -585,12 +638,17 @@
   align-items: center;
   margin-bottom: 20px;
   padding-bottom: 15px;
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 2px solid #555555;
+  background: linear-gradient(90deg, #ff8c00 0%, #ffa500 100%);
+  color: #000000;
+  padding: 15px;
+  margin: -20px -20px 20px -20px;
+  border-radius: 10px 10px 0 0;
 }
 
 .action-card-header h2 {
   margin: 0;
-  color: #333;
+  color: #000000;
   font-size: 20px;
 }
 
@@ -599,17 +657,18 @@
 }
 
 .card-description {
-  background: #f8f9fa;
+  background: #333333;
   padding: 15px;
   border-radius: 8px;
-  color: #555;
+  color: #ffffff;
   font-size: 14px;
   line-height: 1.6;
   margin-bottom: 15px;
+  border: 1px solid #555555;
 }
 
 .card-warning {
-  color: #ff6b35;
+  color: #ff8c00;
   font-weight: bold;
   text-align: center;
   font-size: 14px;
@@ -636,7 +695,7 @@
 
 .player-select:focus {
   outline: none;
-  border-color: #ffa500;
+  border-color: #ff8c00;
 }
 
 .action-card-actions {
@@ -645,12 +704,12 @@
   gap: 10px;
   margin-top: 20px;
   padding-top: 15px;
-  border-top: 2px solid #f0f0f0;
+  border-top: 2px solid #555555;
 }
 
 .cancel-btn {
-  background: #6c757d;
-  color: white;
+  background: #666666;
+  color: #ffffff;
   border: none;
   border-radius: 6px;
   padding: 10px 20px;
@@ -660,12 +719,12 @@
 }
 
 .cancel-btn:hover {
-  background: #5a6268;
+  background: #777777;
 }
 
 .execute-btn {
-  background: #ffa500;
-  color: white;
+  background: #ff8c00;
+  color: #000000;
   border: none;
   border-radius: 6px;
   padding: 10px 20px;
@@ -676,17 +735,19 @@
 }
 
 .execute-btn:hover {
-  background: #e59400;
+  background: #ffa500;
 }
 
 /* Стили для кнопки "Мои карты" */
 .my-characteristics-btn {
   background: #4CAF50 !important;
   color: white !important;
+  border-color: #4CAF50 !important;
 }
 
 .my-characteristics-btn:hover {
   background: #45a049 !important;
+  border-color: #45a049 !important;
 }
 
 /* Модальное окно для просмотра своих характеристик */
@@ -704,7 +765,7 @@
 }
 
 .my-characteristics-modal {
-  background: white;
+  background: #2a2a2a;
   border-radius: 12px;
   padding: 20px;
   max-width: 900px;
@@ -712,6 +773,8 @@
   max-height: 80vh;
   overflow-y: auto;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  border: 2px solid #ff8c00;
+  color: #ffffff;
 }
 
 .my-characteristics-header {
@@ -720,12 +783,17 @@
   align-items: center;
   margin-bottom: 20px;
   padding-bottom: 15px;
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 2px solid #555555;
+  background: linear-gradient(90deg, #ff8c00 0%, #ffa500 100%);
+  color: #000000;
+  padding: 15px;
+  margin: -20px -20px 20px -20px;
+  border-radius: 10px 10px 0 0;
 }
 
 .my-characteristics-header h2 {
   margin: 0;
-  color: #333;
+  color: #000000;
   font-size: 24px;
 }
 
@@ -736,26 +804,26 @@
 }
 
 .my-characteristic-card {
-  background: #f8f9fa;
-  border: 2px solid #e9ecef;
+  background: #333333;
+  border: 2px solid #555555;
   border-radius: 8px;
   padding: 15px;
   transition: all 0.3s ease;
 }
 
 .my-characteristic-card.revealed {
-  border-color: #28a745;
-  background: #d4edda;
+  border-color: #ff8c00;
+  background: #444444;
 }
 
 .my-characteristic-card.hidden {
-  border-color: #dc3545;
-  background: #f8d7da;
+  border-color: #666666;
+  background: #2a2a2a;
 }
 
 .characteristic-description {
   margin-top: 8px;
-  color: #666;
+  color: #cccccc;
   font-size: 13px;
   font-style: italic;
 }
@@ -780,16 +848,18 @@
 }
 
 .ban-btn.ban {
-  background: #ff4757;
+  background: #ff4444;
+  color: #ffffff;
 }
 
 .ban-btn.ban:hover {
-  background: #ff3742;
+  background: #ff6666;
   transform: scale(1.1);
 }
 
 .ban-btn.unban {
-  background: #26de81;
+  background: #44ff44;
+  color: #000000;
 }
 
 .ban-btn.unban:hover {
@@ -844,10 +914,10 @@
   font-weight: bold;
 }
 
-/* Значения характеристик в модальных окнах - черный цвет */
+/* Значения характеристик в модальных окнах - белый цвет */
 .my-characteristic-card h3,
 .admin-characteristic-card .characteristic-content p strong {
-  color: #000000 !important;
+  color: #ffffff !important;
 }
 
 /* Цвета названий характеристик в модальных окнах через классы */
