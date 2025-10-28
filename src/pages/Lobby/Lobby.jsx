@@ -11,6 +11,7 @@ export const Lobby = ({ ws, playerId, players }) => {
   const [actionCardModal, setActionCardModal] = useState(null); // {playerId, card}
   const [bannedPlayers, setBannedPlayers] = useState(new Set()); // Set из ID изгнанных игроков
   const [myCharacteristicsModal, setMyCharacteristicsModal] = useState(false);
+  const [isDarkTheme, setIsDarkTheme] = useState(false); // Состояние темы
   const peersRef = useRef({});
   const videoRefs = useRef({});
   const isInitialized = useRef(false);
@@ -385,7 +386,7 @@ export const Lobby = ({ ws, playerId, players }) => {
   // 🎨 Рендер
   // =========================
   return (
-    <div className="lobby-container">
+    <div className={`lobby-container ${isDarkTheme ? 'dark-theme' : 'light-theme'}`}>
       <div className="lobby-grid">
         {players.filter(p => p.role !== "host").map((player, index) => (
           <div key={player.id} className="player-video-card">
@@ -520,6 +521,14 @@ export const Lobby = ({ ws, playerId, players }) => {
           className={`control-btn ${isCameraOn ? 'active' : 'inactive'}`}
         >
           {isCameraOn ? "📹 Выкл" : "📹❌ Вкл"}
+        </button>
+        
+        {/* Кнопка переключения темы */}
+        <button 
+          onClick={() => setIsDarkTheme(!isDarkTheme)}
+          className="control-btn theme-toggle-btn"
+        >
+          {isDarkTheme ? "☀️ Светлая" : "🌙 Темная"}
         </button>
         
         {/* Кнопка для просмотра своих характеристик (только для игроков) */}

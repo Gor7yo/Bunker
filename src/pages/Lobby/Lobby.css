@@ -890,3 +890,151 @@
 .admin-characteristic-card.actions .characteristic-header h4 {
   color: #ff69b4; /* Действие - розовый */
 }
+
+/* ========================= */
+/* 🌙 ТЕМНАЯ ТЕМА */
+/* ========================= */
+.lobby-container.dark-theme {
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  color: #ffffff;
+}
+
+.lobby-container.dark-theme .lobby-grid {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.lobby-container.dark-theme .player-video-card {
+  background: #2a2a2a;
+  border: 3px solid #ff8c00;
+  box-shadow: 0 4px 15px rgba(255, 140, 0, 0.3);
+}
+
+.lobby-container.dark-theme .player-top-bar {
+  background: linear-gradient(90deg, #ff8c00 0%, #ffa500 100%);
+  color: #000000;
+}
+
+.lobby-container.dark-theme .player-characteristics-panel {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.lobby-container.dark-theme .characteristics-block-left,
+.lobby-container.dark-theme .characteristics-block-right {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: #555555;
+}
+
+.lobby-container.dark-theme .characteristic-item {
+  color: #ffffff;
+}
+
+.lobby-container.dark-theme .controls-panel {
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid #ff8c00;
+}
+
+.lobby-container.dark-theme .control-btn {
+  background: #333333;
+  color: #ffffff;
+  border: 2px solid #555555;
+}
+
+.lobby-container.dark-theme .control-btn:hover {
+  background: #444444;
+  border-color: #ff8c00;
+}
+
+.lobby-container.dark-theme .control-btn.active {
+  background: #ff8c00;
+  color: #000000;
+}
+
+.lobby-container.dark-theme .theme-toggle-btn {
+  background: #444444;
+  border-color: #ff8c00;
+}
+
+.lobby-container.dark-theme .theme-toggle-btn:hover {
+  background: #ff8c00;
+  color: #000000;
+}
+
+/* Модальные окна в темной теме */
+.lobby-container.dark-theme .admin-modal-overlay,
+.lobby-container.dark-theme .my-characteristics-modal-overlay,
+.lobby-container.dark-theme .action-card-modal-overlay {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.lobby-container.dark-theme .admin-modal,
+.lobby-container.dark-theme .my-characteristics-modal,
+.lobby-container.dark-theme .action-card-modal {
+  background: #2a2a2a;
+  border: 2px solid #ff8c00;
+  color: #ffffff;
+}
+
+.lobby-container.dark-theme .admin-modal-header,
+.lobby-container.dark-theme .my-characteristics-header,
+.lobby-container.dark-theme .action-card-header {
+  background: linear-gradient(90deg, #ff8c00 0%, #ffa500 100%);
+  color: #000000;
+}
+
+.lobby-container.dark-theme .admin-characteristic-card,
+.lobby-container.dark-theme .my-characteristic-card {
+  background: #333333;
+  border: 1px solid #555555;
+}
+
+.lobby-container.dark-theme .admin-characteristic-card.revealed,
+.lobby-container.dark-theme .my-characteristic-card.revealed {
+  border-color: #ff8c00;
+}
+
+.lobby-container.dark-theme .characteristic-header h4 {
+  color: #ffffff;
+}
+
+.lobby-container.dark-theme .characteristic-content p strong {
+  color: #ffffff;
+}
+
+.lobby-container.dark-theme .characteristic-description {
+  color: #cccccc;
+}
+
+.lobby-container.dark-theme .player-select {
+  background: #333333;
+  color: #ffffff;
+  border: 1px solid #555555;
+}
+
+.lobby-container.dark-theme .player-select:focus {
+  border-color: #ff8c00;
+}
+
+.lobby-container.dark-theme .execute-btn {
+  background: #ff8c00;
+  color: #000000;
+}
+
+.lobby-container.dark-theme .cancel-btn {
+  background: #666666;
+  color: #ffffff;
+}
+
+.lobby-container.dark-theme .reveal-btn {
+  background: #ff8c00;
+  color: #000000;
+}
+
+.lobby-container.dark-theme .ban-btn {
+  background: #ff4444;
+  color: #ffffff;
+}
+
+.lobby-container.dark-theme .ban-btn.unban {
+  background: #44ff44;
+  color: #000000;
+}
