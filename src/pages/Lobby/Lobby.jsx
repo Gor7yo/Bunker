@@ -672,7 +672,7 @@ export const Lobby = ({ ws, playerId, players }) => {
                     </span>
                   </div>
                   <div className="characteristic-content">
-                    <p><strong>Значение:</strong> {characteristic.value}</p>
+                    <h3>{characteristic.value}</h3>
                     {characteristic.description && (
                       <p className="characteristic-description"><em>{characteristic.description}</em></p>
                     )}
