@@ -844,90 +844,49 @@
   font-weight: bold;
 }
 
-/* Цвета названий характеристик в модальных окнах */
-.my-characteristic-card .characteristic-header h4:contains("Профессия"),
-.admin-characteristic-card .characteristic-header h4:contains("Профессия") {
-  color: #ffa500; /* Профессия - оранжевый */
-}
-
-.my-characteristic-card .characteristic-header h4:contains("Возраст"),
-.admin-characteristic-card .characteristic-header h4:contains("Возраст") {
-  color: #ff0000; /* Возраст - красный */
-}
-
-.my-characteristic-card .characteristic-header h4:contains("Здоровье"),
-.admin-characteristic-card .characteristic-header h4:contains("Здоровье") {
-  color: #00aa00; /* Здоровье - зеленый */
-}
-
-.my-characteristic-card .characteristic-header h4:contains("Фобия"),
-.admin-characteristic-card .characteristic-header h4:contains("Фобия") {
-  color: #800080; /* Фобия - фиолетовый */
-}
-
-.my-characteristic-card .characteristic-header h4:contains("Хобби"),
-.admin-characteristic-card .characteristic-header h4:contains("Хобби") {
-  color: #00aaff; /* Хобби - голубой */
-}
-
-.my-characteristic-card .characteristic-header h4:contains("Багаж"),
-.admin-characteristic-card .characteristic-header h4:contains("Багаж") {
-  color: #0000ff; /* Багаж - синий */
-}
-
-.my-characteristic-card .characteristic-header h4:contains("Факт"),
-.admin-characteristic-card .characteristic-header h4:contains("Факт") {
-  color: #000080; /* Факт - темно-синий */
-}
-
-.my-characteristic-card .characteristic-header h4:contains("Действие"),
-.admin-characteristic-card .characteristic-header h4:contains("Действие") {
-  color: #ff69b4; /* Действие - розовый */
-}
-
 /* Значения характеристик в модальных окнах - черный цвет */
 .my-characteristic-card h3,
 .admin-characteristic-card .characteristic-content p strong {
   color: #000000 !important;
 }
 
-/* Альтернативный способ через классы */
-.my-characteristic-card.profession .characteristic-header h4,
-.admin-characteristic-card.profession .characteristic-header h4 {
-  color: #ffa500;
+/* Цвета названий характеристик в модальных окнах через классы */
+.my-characteristic-card.proffesion .characteristic-header h4,
+.admin-characteristic-card.proffesion .characteristic-header h4 {
+  color: #ffa500; /* Профессия - оранжевый */
 }
 
 .my-characteristic-card.age .characteristic-header h4,
 .admin-characteristic-card.age .characteristic-header h4 {
-  color: #ff0000;
+  color: #ff0000; /* Возраст - красный */
 }
 
 .my-characteristic-card.health .characteristic-header h4,
 .admin-characteristic-card.health .characteristic-header h4 {
-  color: #00aa00;
+  color: #00aa00; /* Здоровье - зеленый */
 }
 
-.my-characteristic-card.phobia .characteristic-header h4,
-.admin-characteristic-card.phobia .characteristic-header h4 {
-  color: #800080;
+.my-characteristic-card.fobia .characteristic-header h4,
+.admin-characteristic-card.fobia .characteristic-header h4 {
+  color: #800080; /* Фобия - фиолетовый */
 }
 
-.my-characteristic-card.hobby .characteristic-header h4,
-.admin-characteristic-card.hobby .characteristic-header h4 {
-  color: #00aaff;
+.my-characteristic-card.hobbie .characteristic-header h4,
+.admin-characteristic-card.hobbie .characteristic-header h4 {
+  color: #00aaff; /* Хобби - голубой */
 }
 
-.my-characteristic-card.baggage .characteristic-header h4,
-.admin-characteristic-card.baggage .characteristic-header h4 {
-  color: #0000ff;
+.my-characteristic-card.bandage .characteristic-header h4,
+.admin-characteristic-card.bandage .characteristic-header h4 {
+  color: #0000ff; /* Багаж - синий */
 }
 
 .my-characteristic-card.fact .characteristic-header h4,
 .admin-characteristic-card.fact .characteristic-header h4 {
-  color: #000080;
+  color: #000080; /* Факт - темно-синий */
 }
 
-.my-characteristic-card.action .characteristic-header h4,
-.admin-characteristic-card.action .characteristic-header h4 {
-  color: #ff69b4;
+.my-characteristic-card.actions .characteristic-header h4,
+.admin-characteristic-card.actions .characteristic-header h4 {
+  color: #ff69b4; /* Действие - розовый */
 }
