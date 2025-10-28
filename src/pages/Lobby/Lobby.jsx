@@ -557,8 +557,8 @@ export const Lobby = ({ ws, playerId, players }) => {
 
       {/* Модальное окно для админа */}
       {isAdminModalOpen && (
-        <div className="admin-modal-overlay">
-          <div className="admin-modal">
+        <div className="admin-modal-overlay" onClick={() => setIsAdminModalOpen(false)}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h2>🎴 Управление карточками игроков</h2>
               <button 
@@ -653,8 +653,8 @@ export const Lobby = ({ ws, playerId, players }) => {
 
       {/* Модальное окно для просмотра своих характеристик */}
       {myCharacteristicsModal && (
-        <div className="my-characteristics-modal-overlay">
-          <div className="my-characteristics-modal">
+        <div className="my-characteristics-modal-overlay" onClick={() => setMyCharacteristicsModal(false)}>
+          <div className="my-characteristics-modal" onClick={(e) => e.stopPropagation()}>
             <div className="my-characteristics-header">
               <h2>🎴 Мои характеристики</h2>
               <button className="close-btn" onClick={() => setMyCharacteristicsModal(false)}>
@@ -771,8 +771,8 @@ const ActionCardModal = ({ card, players, onExecute, onClose }) => {
   };
 
   return (
-    <div className="action-card-modal-overlay">
-      <div className="action-card-modal">
+    <div className="action-card-modal-overlay" onClick={onClose}>
+      <div className="action-card-modal" onClick={(e) => e.stopPropagation()}>
         <div className="action-card-header">
           <h2>🎴 Карта действия: {card.value}</h2>
           <button className="close-btn" onClick={onClose}>✕</button>
