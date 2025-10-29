@@ -278,6 +278,20 @@
   margin: 0.5rem 0;
 }
 
+.admin-panel-warning {
+  padding: 1rem;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.admin-panel-warning p {
+  margin: 0;
+  color: #ffc107;
+}
+
 @media (max-width: 768px) {
   .admin-panel {
     padding: 1rem;

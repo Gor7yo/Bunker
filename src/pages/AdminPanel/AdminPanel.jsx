@@ -33,10 +33,9 @@ export const AdminPanel = () => {
       console.log("🔗 Подключено к серверу");
       setConnected(true);
       
-      // Сразу отправляем запрос на вход как админ
+      // Отправляем запрос на вход в админ-панель (отдельное подключение)
       socket.send(JSON.stringify({ 
-        type: "join", 
-        name: "admin" 
+        type: "join_admin_panel"
       }));
     };
 
@@ -46,10 +45,18 @@ export const AdminPanel = () => {
         console.log("📨 Сообщение:", data);
 
         switch (data.type) {
-          case "joined_as_player":
+          case "joined_as_admin":
             playerIdRef.current = data.id;
             setJoined(true);
             setResetMessage("");
+            break;
+
+          case "joined_as_host":
+            // Это не должно произойти для админ-панели
+            break;
+
+          case "joined_as_player":
+            // Это не должно произойти для админ-панели
             break;
 
           case "players_update":
@@ -65,8 +72,13 @@ export const AdminPanel = () => {
             break;
 
           case "error":
-            setResetMessage(`❌ Ошибка: ${data.message}`);
-            setTimeout(() => setResetMessage(""), 5000);
+            if (data.message === "Админ-панель уже занята") {
+              setJoined(false);
+              setResetMessage(`❌ Админ-панель уже используется другим пользователем. Пожалуйста, подождите или свяжитесь с текущим администратором.`);
+            } else {
+              setResetMessage(`❌ Ошибка: ${data.message}`);
+            }
+            setTimeout(() => setResetMessage(""), 10000);
             break;
 
           default:
@@ -155,6 +167,12 @@ export const AdminPanel = () => {
           </div>
         )}
 
+        {!joined && connected && (
+          <div className="admin-panel-warning">
+            <p>⚠️ Подключение к админ-панели не установлено. Возможно, панель уже занята другим пользователем.</p>
+          </div>
+        )}
+
         <div className="admin-panel-actions">
           <div className="action-card">
             <h2>🔄 Сброс игры</h2>
@@ -168,8 +186,9 @@ export const AdminPanel = () => {
                 className="reset-btn"
                 onClick={handleResetGame}
                 disabled={!connected || !joined || !gameStarted}
+                title={!connected ? "Нет соединения" : !joined ? "Не подключено к админ-панели" : !gameStarted ? "Игра не начата" : "Сбросить игру"}
               >
-                Сбросить игру
+                {!connected ? "Ожидание подключения..." : !joined ? "Панель занята или не подключена" : !gameStarted ? "Игра не начата" : "Сбросить игру"}
               </button>
             ) : (
               <div className="reset-confirm">
