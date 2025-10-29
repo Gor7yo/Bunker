@@ -65,6 +65,12 @@ export const JoinRoom = () => {
           setGameStarted(true);
           break;
 
+        case "game_reset":
+          console.log("🔄 Игра сброшена");
+          setGameStarted(false);
+          setReady(false);
+          break;
+
         case "error":
           setError(data.message);
           break;

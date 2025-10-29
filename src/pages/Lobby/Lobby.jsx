@@ -224,6 +224,9 @@ export const Lobby = ({ ws, playerId, players }) => {
 
         if (data.type === "game_started") {
           console.log("🎮 Игра началась!");
+        } else if (data.type === "game_reset") {
+          console.log("🔄 Игра сброшена администратором");
+          // Можно добавить уведомление или перенаправление
         } else if (data.type === "characteristic_revealed") {
           console.log(`🎴 Характеристика раскрыта для игрока ${data.playerId}:`, data.characteristicType);
           // Игроки обновятся автоматически через props
