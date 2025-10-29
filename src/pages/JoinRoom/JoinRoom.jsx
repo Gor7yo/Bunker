@@ -249,7 +249,7 @@ export const JoinRoom = () => {
               <input
                 disabled={ready}
                 className="usernam-input"
-                maxLength={24}
+                maxLength={12}
                 type="text"
                 placeholder="Никнейм"
                 value={name}
