@@ -11,6 +11,8 @@ export const Lobby = ({ ws, playerId, players }) => {
   const [actionCardModal, setActionCardModal] = useState(null); // {playerId, card}
   const [bannedPlayers, setBannedPlayers] = useState(new Set()); // Set из ID изгнанных игроков
   const [myCharacteristicsModal, setMyCharacteristicsModal] = useState(false);
+  const [gameStartTime, setGameStartTime] = useState(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
   const peersRef = useRef({});
   const videoRefs = useRef({});
   const isInitialized = useRef(false);
@@ -226,7 +228,17 @@ export const Lobby = ({ ws, playerId, players }) => {
           console.log("🎮 Игра началась!");
         } else if (data.type === "game_reset") {
           console.log("🔄 Игра сброшена администратором");
-          // Можно добавить уведомление или перенаправление
+          setGameStartTime(null);
+          setElapsedTime(0);
+        } else if (data.type === "players_update") {
+          // Обновляем время игры
+          if (data.gameStartTime && data.gameStarted) {
+            setGameStartTime(data.gameStartTime);
+            setElapsedTime(data.gameElapsedTime || 0);
+          } else if (!data.gameStarted) {
+            setGameStartTime(null);
+            setElapsedTime(0);
+          }
         } else if (data.type === "characteristic_revealed") {
           console.log(`🎴 Характеристика раскрыта для игрока ${data.playerId}:`, data.characteristicType);
           // Игроки обновятся автоматически через props
@@ -302,6 +314,24 @@ export const Lobby = ({ ws, playerId, players }) => {
   };
 
   // =========================
+  // ⏱️ Таймер игры
+  // =========================
+  useEffect(() => {
+    if (!gameStartTime) {
+      setElapsedTime(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const elapsed = now - gameStartTime;
+      setElapsedTime(elapsed);
+    }, 1000); // Обновляем каждую секунду
+
+    return () => clearInterval(interval);
+  }, [gameStartTime]);
+
+  // =========================
   // 🧹 Очистка
   // =========================
   useEffect(() => {
@@ -318,6 +348,15 @@ export const Lobby = ({ ws, playerId, players }) => {
       }
     };
   }, []);
+
+  // Функция для форматирования времени
+  const formatTime = (ms) => {
+    if (!ms || ms === 0) return "00:00";
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  };
 
   // Функция для получения названия категории
   const getCategoryName = (key) => {
@@ -389,6 +428,14 @@ export const Lobby = ({ ws, playerId, players }) => {
   // =========================
   return (
     <div className="lobby-container">
+      {/* Таймер игры */}
+      {gameStartTime && (
+        <div className="game-timer">
+          <span className="timer-icon">⏱️</span>
+          <span className="timer-text">{formatTime(elapsedTime)}</span>
+        </div>
+      )}
+      
       <div className="lobby-grid">
         {players.filter(p => p.role !== "host").map((player, index) => (
           <div key={player.id} className="player-video-card">
