@@ -46,12 +46,6 @@ export const AdminPanel = () => {
         console.log("📨 Сообщение:", data);
 
         switch (data.type) {
-          case "joined_as_host":
-            playerIdRef.current = data.id;
-            setJoined(true);
-            setResetMessage("");
-            break;
-
           case "joined_as_player":
             playerIdRef.current = data.id;
             setJoined(true);
