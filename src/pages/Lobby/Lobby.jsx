@@ -523,9 +523,11 @@ export const Lobby = ({ ws, playerId, players }) => {
             <span className={`dropdown-arrow ${dropdownMenuOpen ? 'rotated' : ''}`}>↓</span>
           </button>
           <div className="dropdown-menu-content">
-            <div className="dropdown-block dropdown-block-1"></div>
-            <div className="dropdown-block dropdown-block-2"></div>
-            <div className="dropdown-block dropdown-block-3"></div>
+            <div className="dropdown-blocks-container">
+              <div className="dropdown-block dropdown-block-1"></div>
+              <div className="dropdown-block dropdown-block-2"></div>
+              <div className="dropdown-block dropdown-block-3"></div>
+            </div>
           </div>
         </div>
       )}
