@@ -15,6 +15,7 @@ export const Lobby = ({ ws, playerId, players }) => {
   const [myCharacteristicsModal, setMyCharacteristicsModal] = useState(false);
   const [gameStartTime, setGameStartTime] = useState(null);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [dropdownMenuOpen, setDropdownMenuOpen] = useState(false);
   const peersRef = useRef({});
   const videoRefs = useRef({});
   const isInitialized = useRef(false);
@@ -508,6 +509,24 @@ export const Lobby = ({ ws, playerId, players }) => {
         <div className="game-timer">
           <span className="timer-icon">⏱️</span>
           <span className="timer-text">{formatTime(elapsedTime)}</span>
+        </div>
+      )}
+
+      {/* Выдвижное меню */}
+      {gameStartTime && (
+        <div className={`dropdown-menu-wrapper ${dropdownMenuOpen ? 'open' : ''}`}>
+          <button 
+            className="dropdown-menu-toggle"
+            onClick={() => setDropdownMenuOpen(!dropdownMenuOpen)}
+            title={dropdownMenuOpen ? "Свернуть меню" : "Развернуть меню"}
+          >
+            <span className={`dropdown-arrow ${dropdownMenuOpen ? 'rotated' : ''}`}>↓</span>
+          </button>
+          <div className="dropdown-menu-content">
+            <div className="dropdown-block dropdown-block-1"></div>
+            <div className="dropdown-block dropdown-block-2"></div>
+            <div className="dropdown-block dropdown-block-3"></div>
+          </div>
         </div>
       )}
       

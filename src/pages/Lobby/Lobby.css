@@ -46,6 +46,104 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
+/* Выдвижное меню */
+.dropdown-menu-wrapper {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.dropdown-menu-toggle {
+  position: relative;
+  width: 60px;
+  height: 40px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid rgba(255, 140, 0, 0.5);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  color: #ffffff;
+  font-size: 24px;
+  padding: 0;
+  margin: 0;
+}
+
+.dropdown-menu-toggle:hover {
+  background: rgba(0, 0, 0, 0.8);
+  border-color: rgba(255, 140, 0, 0.8);
+}
+
+.dropdown-arrow {
+  display: inline-block;
+  transition: transform 0.3s ease;
+  line-height: 1;
+}
+
+.dropdown-arrow.rotated {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu-content {
+  width: 641px;
+  height: 0;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.8);
+  border: 2px solid rgba(255, 140, 0, 0.5);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  transition: height 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.dropdown-menu-wrapper.open .dropdown-menu-content {
+  height: 750px;
+}
+
+.dropdown-block {
+  background: rgba(255, 140, 0, 0.1);
+  border: 1px solid rgba(255, 140, 0, 0.3);
+  flex-shrink: 0;
+}
+
+.dropdown-block-1 {
+  width: 641px;
+  height: 131px;
+  margin-top: 20px;
+}
+
+.dropdown-block-2 {
+  width: 444px;
+  height: 128px;
+  /* Центральный блок: его низ должен быть на 66px выше низа меню (750px) */
+  /* Значит низ блока на 750 - 66 = 684px от верха */
+  /* Верх блока: 684 - 128 = 556px от верха */
+  /* Блок 1 заканчивается на 20 + 131 = 151px */
+  /* margin-top = 556 - 151 = 405px */
+  margin-top: 405px;
+}
+
+.dropdown-block-3 {
+  width: 641px;
+  height: 131px;
+  /* Третий блок: в самом низу меню */
+  margin-top: auto;
+  margin-bottom: 0;
+}
+
 .lobby-grid {
   padding: 12px 12px;
   display: grid;
