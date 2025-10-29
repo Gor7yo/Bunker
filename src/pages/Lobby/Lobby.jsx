@@ -16,6 +16,8 @@ export const Lobby = ({ ws, playerId, players }) => {
   const [gameStartTime, setGameStartTime] = useState(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [dropdownMenuOpen, setDropdownMenuOpen] = useState(false);
+  const [descriptionTooltip, setDescriptionTooltip] = useState(null); // {text, x, y, visible}
+  const descriptionTimeoutRef = useRef(null);
   const peersRef = useRef({});
   const videoRefs = useRef({});
   const isInitialized = useRef(false);
@@ -422,6 +424,11 @@ export const Lobby = ({ ws, playerId, players }) => {
       if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
       }
+      
+      // Очищаем таймер тултипа при размонтировании
+      if (descriptionTimeoutRef.current) {
+        clearTimeout(descriptionTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -447,6 +454,57 @@ export const Lobby = ({ ws, playerId, players }) => {
       'actions': 'Действие'
     };
     return categoryNames[key] || key;
+  };
+
+  // Обработчик наведения на характеристику с описанием
+  const handleCharacteristicMouseEnter = (characteristic, event) => {
+    // Проверяем наличие описания или experience поля
+    const hasDescription = characteristic && characteristic.revealed && 
+      (characteristic.description || characteristic.experience);
+    
+    if (!hasDescription) {
+      return;
+    }
+
+    // Очищаем предыдущий таймер
+    if (descriptionTimeoutRef.current) {
+      clearTimeout(descriptionTimeoutRef.current);
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top;
+
+    // Используем description или experience
+    const tooltipText = characteristic.description || characteristic.experience;
+
+    // Устанавливаем таймер на 1.5 секунды
+    descriptionTimeoutRef.current = setTimeout(() => {
+      setDescriptionTooltip({
+        text: tooltipText,
+        x: x,
+        y: y,
+        visible: true
+      });
+    }, 650);
+  };
+
+  // Обработчик убирания курсора с характеристики
+  const handleCharacteristicMouseLeave = () => {
+    // Очищаем таймер
+    if (descriptionTimeoutRef.current) {
+      clearTimeout(descriptionTimeoutRef.current);
+      descriptionTimeoutRef.current = null;
+    }
+
+    // Плавно скрываем тултип
+    if (descriptionTooltip) {
+      setDescriptionTooltip(prev => prev ? { ...prev, visible: false } : null);
+      // Удаляем тултип после анимации исчезновения
+      setTimeout(() => {
+        setDescriptionTooltip(null);
+      }, 300);
+    }
   };
 
   // Функция для раскрытия характеристики
@@ -599,28 +657,44 @@ export const Lobby = ({ ws, playerId, players }) => {
             {player.characteristics && (
               <>
                 <div className="characteristics-block-left">
-                  <div className="characteristic-item characteristic-profession">
+                  <div 
+                    className="characteristic-item characteristic-profession"
+                    onMouseEnter={(e) => handleCharacteristicMouseEnter(player.characteristics.proffesion, e)}
+                    onMouseLeave={handleCharacteristicMouseLeave}
+                  >
                     {player.characteristics.proffesion?.revealed ? (
                       <span className="characteristic-value">{player.characteristics.proffesion.value}</span>
                     ) : (
                       <span className="characteristic-label characteristic-profession">Профессия</span>
                     )}
                   </div>
-                  <div className="characteristic-item characteristic-health">
+                  <div 
+                    className="characteristic-item characteristic-health"
+                    onMouseEnter={(e) => handleCharacteristicMouseEnter(player.characteristics.health, e)}
+                    onMouseLeave={handleCharacteristicMouseLeave}
+                  >
                     {player.characteristics.health?.revealed ? (
                       <span className="characteristic-value">{player.characteristics.health.value}</span>
                     ) : (
                       <span className="characteristic-label characteristic-health">Здоровье</span>
                     )}
                   </div>
-                  <div className="characteristic-item characteristic-hobby">
+                  <div 
+                    className="characteristic-item characteristic-hobby"
+                    onMouseEnter={(e) => handleCharacteristicMouseEnter(player.characteristics.hobbie, e)}
+                    onMouseLeave={handleCharacteristicMouseLeave}
+                  >
                     {player.characteristics.hobbie?.revealed ? (
                       <span className="characteristic-value">{player.characteristics.hobbie.value}</span>
                     ) : (
                       <span className="characteristic-label characteristic-hobby">Хобби</span>
                     )}
                   </div>
-                  <div className="characteristic-item characteristic-phobia">
+                  <div 
+                    className="characteristic-item characteristic-phobia"
+                    onMouseEnter={(e) => handleCharacteristicMouseEnter(player.characteristics.fobia, e)}
+                    onMouseLeave={handleCharacteristicMouseLeave}
+                  >
                     {player.characteristics.fobia?.revealed ? (
                       <span className="characteristic-value">{player.characteristics.fobia.value}</span>
                     ) : (
@@ -630,28 +704,44 @@ export const Lobby = ({ ws, playerId, players }) => {
                 </div>
 
                 <div className="characteristics-block-right">
-                  <div className="characteristic-item characteristic-baggage">
+                  <div 
+                    className="characteristic-item characteristic-baggage"
+                    onMouseEnter={(e) => handleCharacteristicMouseEnter(player.characteristics.bandage, e)}
+                    onMouseLeave={handleCharacteristicMouseLeave}
+                  >
                     {player.characteristics.bandage?.revealed ? (
                       <span className="characteristic-value">{player.characteristics.bandage.value}</span>
                     ) : (
                       <span className="characteristic-label characteristic-baggage">Багаж</span>
                     )}
                   </div>
-                  <div className="characteristic-item characteristic-fact">
+                  <div 
+                    className="characteristic-item characteristic-fact"
+                    onMouseEnter={(e) => handleCharacteristicMouseEnter(player.characteristics.fact, e)}
+                    onMouseLeave={handleCharacteristicMouseLeave}
+                  >
                     {player.characteristics.fact?.revealed ? (
                       <span className="characteristic-value">{player.characteristics.fact.value}</span>
                     ) : (
                       <span className="characteristic-label characteristic-fact">Факт</span>
                     )}
                   </div>
-                  <div className="characteristic-item characteristic-age">
+                  <div 
+                    className="characteristic-item characteristic-age"
+                    onMouseEnter={(e) => handleCharacteristicMouseEnter(player.characteristics.age, e)}
+                    onMouseLeave={handleCharacteristicMouseLeave}
+                  >
                     {player.characteristics.age?.revealed ? (
                       <span className="characteristic-value">{player.characteristics.age.value}</span>
                     ) : (
                       <span className="characteristic-label">Возраст</span>
                     )}
                   </div>
-                  <div className="characteristic-item characteristic-action">
+                  <div 
+                    className="characteristic-item characteristic-action"
+                    onMouseEnter={(e) => handleCharacteristicMouseEnter(player.characteristics.actions, e)}
+                    onMouseLeave={handleCharacteristicMouseLeave}
+                  >
                     {player.characteristics.actions?.revealed ? (
                       <span className="characteristic-value">{player.characteristics.actions.value}</span>
                     ) : (
@@ -693,6 +783,23 @@ export const Lobby = ({ ws, playerId, players }) => {
           </div>
         ))}
       </div>
+
+      {/* Тултип с описанием характеристики */}
+      {descriptionTooltip && (
+        <div 
+          className={`description-tooltip ${descriptionTooltip.visible ? 'visible' : ''}`}
+          style={{
+            left: `${descriptionTooltip.x}px`,
+            top: `${descriptionTooltip.y - 10}px`,
+            transform: 'translate(-50%, -100%)'
+          }}
+        >
+          <div className="tooltip-content">
+            {descriptionTooltip.text}
+          </div>
+          <div className="tooltip-arrow"></div>
+        </div>
+      )}
 
       <div className="controls-panel">
         <button 
