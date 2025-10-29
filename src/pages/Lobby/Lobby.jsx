@@ -637,18 +637,18 @@ export const Lobby = ({ ws, playerId, players }) => {
                       <span className="characteristic-label characteristic-baggage">Багаж</span>
                     )}
                   </div>
-                  <div className="characteristic-item characteristic-age">
-                    {player.characteristics.age?.revealed ? (
-                      <span className="characteristic-value">{player.characteristics.age.value}</span>
-                    ) : (
-                      <span className="characteristic-label">Возраст</span>
-                    )}
-                  </div>
                   <div className="characteristic-item characteristic-fact">
                     {player.characteristics.fact?.revealed ? (
                       <span className="characteristic-value">{player.characteristics.fact.value}</span>
                     ) : (
                       <span className="characteristic-label characteristic-fact">Факт</span>
+                    )}
+                  </div>
+                  <div className="characteristic-item characteristic-age">
+                    {player.characteristics.age?.revealed ? (
+                      <span className="characteristic-value">{player.characteristics.age.value}</span>
+                    ) : (
+                      <span className="characteristic-label">Возраст</span>
                     )}
                   </div>
                   <div className="characteristic-item characteristic-action">
