@@ -192,7 +192,7 @@ export const JoinRoom = () => {
                       checked={mirrorCamera}
                       onChange={(e) => setMirrorCamera(e.target.checked)}
                     />
-                    <span>🪞 Зеркалить камеру</span>
+                    <span>Отзеркалить камеру</span>
                   </label>
                 </div>
                 {webcamIsOn ? (

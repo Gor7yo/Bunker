@@ -668,7 +668,7 @@ export const Lobby = ({ ws, playerId, players }) => {
             onClick={() => setIsAdminModalOpen(true)}
             className="control-btn admin-btn"
           >
-            🎴 Управление карточками
+            Управление карточками
           </button>
         )}
         
@@ -690,7 +690,7 @@ export const Lobby = ({ ws, playerId, players }) => {
         <div className="admin-modal-overlay" onClick={() => setIsAdminModalOpen(false)}>
           <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
-              <h2>🎴 Управление карточками игроков</h2>
+              <h2>Управление карточками игроков</h2>
               <button 
                 className="close-btn"
                 onClick={() => setIsAdminModalOpen(false)}
@@ -711,7 +711,7 @@ export const Lobby = ({ ws, playerId, players }) => {
                       className="view-btn"
                       onClick={() => setSelectedPlayerForAdmin(player)}
                     >
-                      👁️ Просмотр
+                      ✏️
                     </button>
                   </div>
                 </div>
@@ -786,7 +786,7 @@ export const Lobby = ({ ws, playerId, players }) => {
         <div className="my-characteristics-modal-overlay" onClick={() => setMyCharacteristicsModal(false)}>
           <div className="my-characteristics-modal" onClick={(e) => e.stopPropagation()}>
             <div className="my-characteristics-header">
-              <h2>🎴 Мои характеристики</h2>
+              <h2>Мои характеристики</h2>
               <button className="close-btn" onClick={() => setMyCharacteristicsModal(false)}>
                 ✕
               </button>
@@ -895,7 +895,7 @@ const ActionCardModal = ({ card, players, onExecute, onClose }) => {
     return (
       <div>
         <p className="card-description">{card.description}</p>
-        <p className="card-warning">⚠️ Вы уверены, что хотите активировать эту карту?</p>
+        <p className="card-warning">Вы уверены, что хотите активировать эту карту?</p>
       </div>
     );
   };
@@ -904,7 +904,7 @@ const ActionCardModal = ({ card, players, onExecute, onClose }) => {
     <div className="action-card-modal-overlay" onClick={onClose}>
       <div className="action-card-modal" onClick={(e) => e.stopPropagation()}>
         <div className="action-card-header">
-          <h2>🎴 Карта действия: {card.value}</h2>
+          <h2>❗Карта действия: {card.value}</h2>
           <button className="close-btn" onClick={onClose}>✕</button>
         </div>
         
@@ -914,7 +914,7 @@ const ActionCardModal = ({ card, players, onExecute, onClose }) => {
 
         <div className="action-card-actions">
           <button className="cancel-btn" onClick={onClose}>Отмена</button>
-          <button className="execute-btn" onClick={handleSubmit}>⚡ Выполнить</button>
+          <button className="execute-btn" onClick={handleSubmit}>Выполнить</button>
         </div>
       </div>
     </div>
