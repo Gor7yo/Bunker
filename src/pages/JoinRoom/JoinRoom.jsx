@@ -111,15 +111,9 @@ export const JoinRoom = () => {
   }, []);
 
   // ==========================
-  // 📤 Отправка имени игрока
+  // 📤 Отправка имени игрока (используется только при нажатии "Готов")
   // ==========================
-  const sendName = () => {
-    if (!name.trim() || !connected || !wsRef.current) return;
-
-    const playerName = name.trim();
-    wsRef.current.send(JSON.stringify({ type: "join", name: playerName }));
-    localStorage.setItem("playerName", playerName);
-  };
+  // Функция sendName удалена - никнейм теперь отправляется только при нажатии "Готов"
 
   // ==========================
   // 🚦 Готов / не готов
@@ -131,10 +125,20 @@ export const JoinRoom = () => {
       return;
     }
 
-    wsRef.current.send(
-      JSON.stringify({ type: "set_ready", ready: !ready })
-    );
-    setReady(!ready);
+    // Если пользователь еще не вошел (не отправил никнейм), отправляем его сначала
+    if (!joined && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const playerName = name.trim();
+      wsRef.current.send(JSON.stringify({ type: "join", name: playerName }));
+      localStorage.setItem("playerName", playerName);
+    }
+
+    // Затем отправляем статус готовности
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({ type: "set_ready", ready: !ready })
+      );
+      setReady(!ready);
+    }
   };
 
   // ==========================
@@ -250,8 +254,12 @@ export const JoinRoom = () => {
                 placeholder="Никнейм"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                onBlur={sendName}
-                onKeyDown={(e) => e.key === "Enter" && sendName()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleReady(e);
+                  }
+                }}
                 />
             </div>
 
