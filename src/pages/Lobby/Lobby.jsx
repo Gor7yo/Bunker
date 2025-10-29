@@ -27,12 +27,20 @@ export const Lobby = ({ ws, playerId, players }) => {
   // 📹 Инициализация локальной камеры (УПРОЩЕННАЯ)
   // =========================
   useEffect(() => {
-    if (streamLockRef.current) return;
-    streamLockRef.current = true;
+    if (streamLockRef.current || !playerId) return;
+    
+    let mounted = true;
+    let streamObtained = false;
 
     async function initCamera() {
       try {
-        console.log("🎥 Зaпуск инициализации камеры...");
+        // Небольшая задержка, чтобы дать время MyCamera освободить камеру при переходе
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        if (!mounted) return;
+        
+        console.log("🎥 Запуск инициализации камеры в Lobby...");
+        
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
             width: { ideal: 640 }, 
@@ -42,12 +50,22 @@ export const Lobby = ({ ws, playerId, players }) => {
           audio: false
         });
         
-        console.log("✅ Камера инициализирована, треки:", {
+        streamObtained = true;
+        
+        if (!mounted) {
+          // Если компонент размонтирован, останавливаем поток
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+        
+        console.log("✅ Камера инициализирована в Lobby, треки:", {
           video: stream.getVideoTracks().map(t => ({enabled: t.enabled, readyState: t.readyState})),
           audio: false
         });
         
+        streamLockRef.current = true;
         setLocalStream(stream);
+        setIsCameraOn(true);
         
         // Сразу подключаем к своему видео элементу
         if (videoRefs.current[playerId]) {
@@ -55,15 +73,17 @@ export const Lobby = ({ ws, playerId, players }) => {
           videoElement.srcObject = stream;
           videoElement.muted = true;
           
-          videoElement.play().catch(err => {
+          await videoElement.play().catch(err => {
             console.warn("⚠️ Автоплей заблокирован, но поток подключен:", err);
           });
         }
         
       } catch (err) {
-        console.error("❌ Ошибка доступа к камере/микрофону:", err);
-        setIsCameraOn(false);
-        streamLockRef.current = false;
+        console.error("❌ Ошибка доступа к камере в Lobby:", err);
+        if (mounted) {
+          setIsCameraOn(false);
+          streamLockRef.current = false;
+        }
       }
     }
 
@@ -73,7 +93,11 @@ export const Lobby = ({ ws, playerId, players }) => {
     }
 
     return () => {
+      mounted = false;
       // Не останавливаем поток при размонтировании, только при полном выходе
+      if (!streamObtained) {
+        streamLockRef.current = false;
+      }
     };
   }, [playerId]);
 
