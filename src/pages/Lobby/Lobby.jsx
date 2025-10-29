@@ -16,7 +16,7 @@ export const Lobby = ({ ws, playerId, players }) => {
   const [gameStartTime, setGameStartTime] = useState(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [dropdownMenuOpen, setDropdownMenuOpen] = useState(false);
-  const [descriptionTooltip, setDescriptionTooltip] = useState(null); // {text, x, y, visible}
+  const [descriptionTooltip, setDescriptionTooltip] = useState(null); // {text, x, y, position, visible}
   const descriptionTimeoutRef = useRef(null);
   const peersRef = useRef({});
   const videoRefs = useRef({});
@@ -456,6 +456,53 @@ export const Lobby = ({ ws, playerId, players }) => {
     return categoryNames[key] || key;
   };
 
+  // Функция для вычисления корректной позиции тултипа с учетом границ экрана
+  const calculateTooltipPosition = (x, y, elementHeight, text) => {
+    const maxWidth = 300; // Максимальная ширина из CSS
+    const padding = 15; // Отступ от краев экрана
+    const estimatedTooltipHeight = 80; // Примерная высота тултипа
+    const arrowHeight = 8; // Высота стрелки
+    const spacing = 10; // Отступ от элемента
+    
+    let finalX = x;
+    let finalY = y;
+    let position = 'top'; // 'top' или 'bottom'
+    
+    // Проверяем границы по горизонтали
+    const halfWidth = maxWidth / 2;
+    const windowWidth = window.innerWidth;
+    
+    // Если тултип выходит за левую границу
+    if (x - halfWidth < padding) {
+      finalX = halfWidth + padding;
+    }
+    // Если тултип выходит за правую границу
+    else if (x + halfWidth > windowWidth - padding) {
+      finalX = windowWidth - halfWidth - padding;
+    }
+    
+    // Проверяем границы по вертикали
+    const windowHeight = window.innerHeight;
+    // Тултип изначально располагается сверху (transform: translate(-50%, -100%))
+    const tooltipTopY = y - estimatedTooltipHeight - arrowHeight - spacing;
+    
+    // Если тултип выходит за верхнюю границу, показываем его снизу
+    if (tooltipTopY < padding) {
+      position = 'bottom';
+      finalY = y + elementHeight + arrowHeight + spacing;
+      // Проверяем, не выходит ли снизу
+      if (finalY + estimatedTooltipHeight > windowHeight - padding) {
+        // Если и снизу не влезает, возвращаемся наверх, но ближе к верху экрана
+        position = 'top';
+        finalY = padding + estimatedTooltipHeight / 2;
+      }
+    } else {
+      position = 'top';
+    }
+    
+    return { x: finalX, y: finalY, position };
+  };
+
   // Обработчик наведения на характеристику с описанием
   const handleCharacteristicMouseEnter = (characteristic, event) => {
     // Проверяем наличие описания или experience поля
@@ -475,15 +522,26 @@ export const Lobby = ({ ws, playerId, players }) => {
     const x = rect.left + rect.width / 2;
     const y = rect.top;
 
-    // Используем description или experience
-    const tooltipText = characteristic.description || characteristic.experience;
+    // Используем description или experience и убеждаемся, что первая буква заглавная
+    let tooltipText = characteristic.description || characteristic.experience;
+    if (tooltipText && tooltipText.length > 0) {
+      // Преобразуем первую букву в заглавную (работает с кириллицей и латиницей)
+      const firstChar = tooltipText[0];
+      if (firstChar && firstChar === firstChar.toLowerCase()) {
+        tooltipText = firstChar.toUpperCase() + tooltipText.slice(1);
+      }
+    }
 
-    // Устанавливаем таймер на 1.5 секунды
+    // Рассчитываем корректную позицию с учетом границ экрана
+    const { x: finalX, y: finalY, position } = calculateTooltipPosition(x, y, rect.height, tooltipText);
+
+    // Устанавливаем таймер на 0.65 секунды
     descriptionTimeoutRef.current = setTimeout(() => {
       setDescriptionTooltip({
         text: tooltipText,
-        x: x,
-        y: y,
+        x: finalX,
+        y: finalY,
+        position: position,
         visible: true
       });
     }, 650);
@@ -787,17 +845,21 @@ export const Lobby = ({ ws, playerId, players }) => {
       {/* Тултип с описанием характеристики */}
       {descriptionTooltip && (
         <div 
-          className={`description-tooltip ${descriptionTooltip.visible ? 'visible' : ''}`}
+          className={`description-tooltip ${descriptionTooltip.visible ? 'visible' : ''} ${descriptionTooltip.position === 'bottom' ? 'tooltip-bottom' : ''}`}
           style={{
             left: `${descriptionTooltip.x}px`,
-            top: `${descriptionTooltip.y - 10}px`,
-            transform: 'translate(-50%, -100%)'
+            top: descriptionTooltip.position === 'bottom' 
+              ? `${descriptionTooltip.y + 10}px` 
+              : `${descriptionTooltip.y - 10}px`,
+            transform: descriptionTooltip.position === 'bottom' 
+              ? 'translate(-50%, 0%)' 
+              : 'translate(-50%, -100%)'
           }}
         >
           <div className="tooltip-content">
             {descriptionTooltip.text}
           </div>
-          <div className="tooltip-arrow"></div>
+          <div className={`tooltip-arrow ${descriptionTooltip.position === 'bottom' ? 'arrow-bottom' : ''}`}></div>
         </div>
       )}
 

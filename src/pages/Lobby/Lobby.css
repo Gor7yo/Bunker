@@ -442,6 +442,13 @@
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
 }
 
+.tooltip-arrow.arrow-bottom {
+  bottom: auto;
+  top: -8px;
+  border-top: none;
+  border-bottom: 8px solid rgba(20, 20, 25, 0.95);
+}
+
 .lobby-grid {
   padding: 12px 12px;
   display: grid;
