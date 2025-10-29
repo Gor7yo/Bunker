@@ -58,6 +58,10 @@ export const JoinRoom = () => {
         case "players_update":
           setPlayers(data.players);
           setReadyCount(data.readyCount || 0);
+          // Если игра уже началась и пользователь вошел, переводим в лобби
+          if (data.gameStarted && joined) {
+            setGameStarted(true);
+          }
           break;
 
         case "game_started":
@@ -127,9 +131,11 @@ export const JoinRoom = () => {
   // ==========================
   // 🕹 Переход в лобби
   // ==========================
-  if (gameStarted) {
-    console.log(gameStarted)
-  }
+  // Переходим в лобби если:
+  // 1. Игра началась И пользователь вошел в игру (joined)
+  // ИЛИ
+  // 2. Игра началась И пользователь готов (ready) - для тех кто заходит во время игры
+  const shouldShowLobby = gameStarted && (joined || ready);
 
   // ==========================
   // 🧱 Интерфейс
@@ -137,7 +143,7 @@ export const JoinRoom = () => {
 
   return (
     <>
-    {!gameStarted ? <div className="join-room">
+    {!shouldShowLobby ? <div className="join-room">
       <div className="actions-block">
         <h2>{readyCount} / {players.length || 0}</h2>
         <p>

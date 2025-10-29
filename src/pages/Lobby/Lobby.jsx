@@ -123,11 +123,14 @@ export const Lobby = ({ ws, playerId, players }) => {
       rtcpMuxPolicy: 'require'
     });
 
-    // 🔥 ВАЖНО: Добавляем локальные треки
+    // 🔥 ВАЖНО: Добавляем только видео треки (без звука)
     if (localStream) {
       localStream.getTracks().forEach(track => {
-        console.log(`📤 Добавляем локальный трек ${track.kind} для ${remoteId}`);
-        pc.addTrack(track, localStream);
+        // Добавляем только видео треки, аудио пропускаем
+        if (track.kind === 'video') {
+          console.log(`📤 Добавляем локальный трек ${track.kind} для ${remoteId}`);
+          pc.addTrack(track, localStream);
+        }
       });
     }
 
@@ -148,8 +151,17 @@ export const Lobby = ({ ws, playerId, players }) => {
         setTimeout(() => {
           if (videoRefs.current[remoteId]) {
             const videoElement = videoRefs.current[remoteId];
+            
+            // Отключаем все аудио треки из удаленного потока
+            remoteStream.getAudioTracks().forEach(audioTrack => {
+              audioTrack.stop();
+              audioTrack.enabled = false;
+              console.log(`🔇 Отключен аудио трек от ${remoteId}`);
+            });
+            
             videoElement.srcObject = remoteStream;
             videoElement.playsInline = true;
+            videoElement.muted = true; // Обязательно отключаем звук
             
             videoElement.play().then(() => {
               console.log(`✅ Видео воспроизводится для ${remoteId}`);
@@ -461,7 +473,7 @@ export const Lobby = ({ ws, playerId, players }) => {
               }}
               autoPlay
               playsInline
-              muted={player.id === playerId}
+              muted={true}
               className={`player-video ${bannedPlayers.has(player.id) ? 'banned' : ''}`}
             />
 
