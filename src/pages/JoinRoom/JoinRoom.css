@@ -120,6 +120,39 @@
 	height: 320px;
 }
 
+.webcam-controls {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	margin: 10px 0;
+	gap: 8px;
+}
+
+.mirror-toggle {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	cursor: pointer;
+	user-select: none;
+	font-size: 14px;
+	color: #fff;
+	padding: 8px 12px;
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 8px;
+	transition: background 0.2s ease;
+}
+
+.mirror-toggle:hover {
+	background: rgba(255, 255, 255, 0.15);
+}
+
+.mirror-toggle input[type="checkbox"] {
+	cursor: pointer;
+	width: 18px;
+	height: 18px;
+	accent-color: #ff8c00;
+}
+
 .webcam strong {
 	font-size: 12px;
 }

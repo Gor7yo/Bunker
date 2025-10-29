@@ -1,9 +1,11 @@
 // Lobby.js - исправленная версия
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 import "./Lobby.css";
 import { GameCharacteristics } from "../../components/GameCharacteristics/GameCharacteristics";
+import { DataContext } from "../../context/DataContext";
 
 export const Lobby = ({ ws, playerId, players }) => {
+  const { mirrorCamera } = useContext(DataContext);
   const [localStream, setLocalStream] = useState(null);
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
@@ -162,6 +164,9 @@ export const Lobby = ({ ws, playerId, players }) => {
             videoElement.srcObject = remoteStream;
             videoElement.playsInline = true;
             videoElement.muted = true; // Обязательно отключаем звук
+            
+            // Применяем зеркалирование только к локальному видео
+            // Для удаленных видео не применяем
             
             videoElement.play().then(() => {
               console.log(`✅ Видео воспроизводится для ${remoteId}`);
@@ -342,6 +347,20 @@ export const Lobby = ({ ws, playerId, players }) => {
 
     return () => clearInterval(interval);
   }, [gameStartTime]);
+
+  // =========================
+  // 🔄 Применение зеркалирования к локальному видео
+  // =========================
+  useEffect(() => {
+    if (videoRefs.current[playerId]) {
+      const localVideo = videoRefs.current[playerId];
+      if (mirrorCamera) {
+        localVideo.style.transform = 'scaleX(-1)';
+      } else {
+        localVideo.style.transform = 'none';
+      }
+    }
+  }, [mirrorCamera, playerId]);
 
   // =========================
   // 🧹 Очистка

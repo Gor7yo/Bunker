@@ -4,7 +4,7 @@ import { DataContext } from "../../context/DataContext";
 
 function MyCamera({ onStream }) {
   const videoRef = useRef(null);
-  const { webcamIsOn, setWebcamIsOn } = useContext(DataContext)
+  const { webcamIsOn, setWebcamIsOn, mirrorCamera } = useContext(DataContext)
 
   useEffect(() => {
     let stream;
@@ -34,7 +34,19 @@ function MyCamera({ onStream }) {
     };
   }, [onStream]);
 
-  return <video className="webcamera" ref={videoRef} autoPlay playsInline muted style={{ width: "400px" }} />;
+  return (
+    <video 
+      className="webcamera" 
+      ref={videoRef} 
+      autoPlay 
+      playsInline 
+      muted 
+      style={{ 
+        width: "400px",
+        transform: mirrorCamera ? 'scaleX(-1)' : 'none'
+      }} 
+    />
+  );
 }
 
 export default MyCamera;

@@ -6,7 +6,7 @@ import { DataContext } from "../../context/DataContext";
 import { Lobby } from "../Lobby/Lobby";
 
 export const JoinRoom = () => {
-  const { webcamIsOn } = useContext(DataContext);
+  const { webcamIsOn, mirrorCamera, setMirrorCamera } = useContext(DataContext);
 
   const [ws, setWs] = useState(null);
   const [name, setName] = useState("");
@@ -162,6 +162,16 @@ export const JoinRoom = () => {
             {role !== "host" ? (
               <>
                 <MyCamera className="webcamera" />
+                <div className="webcam-controls">
+                  <label className="mirror-toggle">
+                    <input
+                      type="checkbox"
+                      checked={mirrorCamera}
+                      onChange={(e) => setMirrorCamera(e.target.checked)}
+                    />
+                    <span>🪞 Зеркалить камеру</span>
+                  </label>
+                </div>
                 {webcamIsOn ? (
                   <strong className="webcam-is-on">Ваша вебкамера работает ✅</strong>
                 ) : (
