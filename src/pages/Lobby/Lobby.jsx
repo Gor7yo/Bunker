@@ -165,8 +165,12 @@ export const Lobby = ({ ws, playerId, players }) => {
             videoElement.playsInline = true;
             videoElement.muted = true; // Обязательно отключаем звук
             
-            // Применяем зеркалирование только к локальному видео
-            // Для удаленных видео не применяем
+            // Применяем зеркалирование к удаленному видео, если оно включено у этого игрока
+            // Находим информацию об игроке из списка players
+            const remotePlayer = players.find(p => p.id === remoteId);
+            if (remotePlayer && remotePlayer.mirrorCamera) {
+              videoElement.style.transform = 'scaleX(-1)';
+            }
             
             videoElement.play().then(() => {
               console.log(`✅ Видео воспроизводится для ${remoteId}`);
@@ -256,6 +260,19 @@ export const Lobby = ({ ws, playerId, players }) => {
             setGameStartTime(null);
             setElapsedTime(0);
           }
+          
+          // Применяем зеркалирование к видео элементам на основе данных игроков
+          data.players?.forEach(playerData => {
+            if (videoRefs.current[playerData.id]) {
+              const videoElement = videoRefs.current[playerData.id];
+              // Применяем зеркалирование только к удаленным игрокам (не к себе)
+              if (playerData.id !== playerId && playerData.mirrorCamera) {
+                videoElement.style.transform = 'scaleX(-1)';
+              } else if (playerData.id !== playerId && !playerData.mirrorCamera) {
+                videoElement.style.transform = 'none';
+              }
+            }
+          });
         } else if (data.type === "characteristic_revealed") {
           console.log(`🎴 Характеристика раскрыта для игрока ${data.playerId}:`, data.characteristicType);
           // Игроки обновятся автоматически через props
@@ -354,6 +371,7 @@ export const Lobby = ({ ws, playerId, players }) => {
   useEffect(() => {
     if (videoRefs.current[playerId]) {
       const localVideo = videoRefs.current[playerId];
+      // Применяем зеркалирование только если оно включено в настройках
       if (mirrorCamera) {
         localVideo.style.transform = 'scaleX(-1)';
       } else {
@@ -361,6 +379,32 @@ export const Lobby = ({ ws, playerId, players }) => {
       }
     }
   }, [mirrorCamera, playerId]);
+
+  // =========================
+  // 🔄 Применение зеркалирования ко всем видео элементам при изменении players
+  // =========================
+  useEffect(() => {
+    players.forEach(player => {
+      if (videoRefs.current[player.id]) {
+        const videoElement = videoRefs.current[player.id];
+        // Для локального игрока используем настройки из контекста
+        if (player.id === playerId) {
+          if (mirrorCamera) {
+            videoElement.style.transform = 'scaleX(-1)';
+          } else {
+            videoElement.style.transform = 'none';
+          }
+        } else {
+          // Для удаленных игроков используем данные от сервера
+          if (player.mirrorCamera) {
+            videoElement.style.transform = 'scaleX(-1)';
+          } else {
+            videoElement.style.transform = 'none';
+          }
+        }
+      }
+    });
+  }, [players, mirrorCamera, playerId]);
 
   // =========================
   // 🧹 Очистка
@@ -487,6 +531,11 @@ export const Lobby = ({ ws, playerId, players }) => {
                     el.srcObject = localStream;
                     el.muted = true;
                     el.play().catch(console.warn);
+                  }
+                  
+                  // Применяем зеркалирование, если оно включено у этого игрока
+                  if (player.mirrorCamera) {
+                    el.style.transform = 'scaleX(-1)';
                   }
                 }
               }}

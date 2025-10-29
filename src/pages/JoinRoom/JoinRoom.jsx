@@ -67,6 +67,15 @@ export const JoinRoom = () => {
         case "game_started":
           console.log("🎮 Игра началась!");
           setGameStarted(true);
+          // Отправляем настройки зеркалирования после начала игры
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && joined) {
+            wsRef.current.send(
+              JSON.stringify({ 
+                type: "set_mirror_camera", 
+                mirror: mirrorCamera 
+              })
+            );
+          }
           break;
 
         case "game_reset":
@@ -127,6 +136,20 @@ export const JoinRoom = () => {
     );
     setReady(!ready);
   };
+
+  // ==========================
+  // 🪞 Отправка настроек зеркалирования на сервер
+  // ==========================
+  useEffect(() => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && joined) {
+      wsRef.current.send(
+        JSON.stringify({ 
+          type: "set_mirror_camera", 
+          mirror: mirrorCamera 
+        })
+      );
+    }
+  }, [mirrorCamera, joined]);
 
   // ==========================
   // 🕹 Переход в лобби
