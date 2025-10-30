@@ -15,8 +15,6 @@ button {
 	outline: none;
   border: none;
   color: white;
-	background: -webkit-linear-gradient(75deg, #EA6607, #370072);
-  transition: .2s ease;
   cursor: pointer;
 
   &:active {

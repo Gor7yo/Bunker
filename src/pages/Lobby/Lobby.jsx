@@ -274,6 +274,13 @@ export const Lobby = ({ ws, playerId, players }) => {
       try {
         const data = JSON.parse(msg.data);
 
+        // Если нас кикнули — мгновенно перезагружаем страницу
+        if (data.type === "kicked") {
+          console.log("🚪 Вы были кикнуты администратором. Перезагрузка страницы...");
+          window.location.reload();
+          return;
+        }
+
         if (data.type === "game_started") {
           console.log("🎮 Игра началась!");
         } else if (data.type === "game_reset") {

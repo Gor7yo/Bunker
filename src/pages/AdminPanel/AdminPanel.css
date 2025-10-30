@@ -43,6 +43,21 @@
   transform: translateY(-2px);
 }
 
+.kick-btn {
+  position: relative;
+  padding: 6px 15px;
+  background-color: #DB3431;
+  margin-top: 8px;
+  border-radius: 8px;
+  transition: .2s ease;
+  font-weight: 700;
+
+  &:hover {
+    background-color: #ea4c4a;
+    transform: translateY(-2px);
+  }
+}
+
 .admin-panel-status {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

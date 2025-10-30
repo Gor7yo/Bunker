@@ -84,6 +84,11 @@ export const JoinRoom = () => {
           setReady(false);
           break;
 
+        case "kicked":
+          console.log("🚪 Вы были кикнуты администратором. Перезагрузка страницы...");
+          window.location.reload();
+          break;
+
         case "error":
           setError(data.message);
           break;
