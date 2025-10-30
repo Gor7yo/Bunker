@@ -125,6 +125,14 @@ export const AdminPanel = () => {
   };
 
   // ==========================
+  // 🦵 Кик игрока (без бана)
+  // ==========================
+  const handleKickPlayer = (playerId) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: "kick_player", playerId }));
+  };
+
+  // ==========================
   // 🧱 Интерфейс
   // ==========================
   return (
@@ -238,6 +246,18 @@ export const AdminPanel = () => {
                       </div>
                     )}
                   </div>
+                  {player.role !== 'host' && (
+                    <div className="player-actions">
+                      <button 
+                        className="kick-btn"
+                        onClick={() => handleKickPlayer(player.id)}
+                        title={`Кикнуть игрока ${player.name}`}
+                        disabled={!connected || !joined}
+                      >
+                        Kick
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
