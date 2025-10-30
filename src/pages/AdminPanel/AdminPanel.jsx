@@ -252,7 +252,7 @@ export const AdminPanel = () => {
                         title={`Кикнуть игрока ${player.name}`}
                         disabled={!connected || !joined}
                       >
-                        Kick asdasdasdas
+                        Kick asdasdasdass
                       </button>
                     </div>
                   )}
