@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef, useContext } from "react";
 import "./Lobby.css";
 import { GameCharacteristics } from "../../components/GameCharacteristics/GameCharacteristics";
 import { DataContext } from "../../context/DataContext";
+import { FaBan } from "react-icons/fa6";
+import { GiHolyGrail } from "react-icons/gi";
 
 export const Lobby = ({ ws, playerId, players }) => {
   const { mirrorCamera } = useContext(DataContext);
@@ -846,7 +848,7 @@ export const Lobby = ({ ws, playerId, players }) => {
                 onClick={() => toggleBanPlayer(player.id)}
                 title={bannedPlayers.has(player.id) ? 'Вернуть игрока' : 'Изгнать игрока'}
               >
-                {bannedPlayers.has(player.id) ? '🔄' : '🚫'}
+                {bannedPlayers.has(player.id) ? <GiHolyGrail className="reload-player" /> : <FaBan className="ban-player" />}
               </button>
             )}
 
@@ -915,6 +917,15 @@ export const Lobby = ({ ws, playerId, players }) => {
           </button>
         )}
         
+        {/* Кнопка выхода (для всех) */}
+        <button 
+          onClick={() => window.location.reload()}
+          className="control-btn exit-btn"
+          title="Выйти"
+        >
+          Выйти
+        </button>
+
         <div className="status-info">
           <span>Соединения: {Object.values(peersRef.current).filter(pc => pc.connectionState === 'connected').length}</span>
         </div>
