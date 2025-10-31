@@ -718,7 +718,7 @@ export const Lobby = ({ ws, playerId, players }) => {
                   // Если это локальный игрок и есть поток - сразу подключаем
                   if (player.id === playerId && localStream) {
                     el.srcObject = localStream;
-                    // Локальное видео не мутим, чтобы не создавать эхо
+                    el.muted = true; // Мутим локальное видео, чтобы игрок не слышал сам себя
                     el.play().catch(console.warn);
                   }
                   
@@ -730,6 +730,7 @@ export const Lobby = ({ ws, playerId, players }) => {
               }}
               autoPlay
               playsInline
+              muted={player.id === playerId}
               className={`player-video ${bannedPlayers.has(player.id) ? 'banned' : ''}`}
             />
 
