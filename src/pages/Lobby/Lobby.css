@@ -63,9 +63,9 @@
 .dropdown-menu-toggle {
   width: 130px;
   height: 18px;
-  background: #1a1a1a;
+  background: #7b7b7b;
   opacity: 0.4;
-  outline: 1px solid #32323288;
+  outline: 1px solid #0b0b0b88;
   outline-offset: -2px;
   display: flex;
   justify-content: center;
@@ -1409,4 +1409,249 @@
 .my-characteristic-card.actions .characteristic-header h4,
 .admin-characteristic-card.actions .characteristic-header h4 {
   color: #ff69b4; /* Действие - розовый */
+}
+
+/* Overlay "Подключение..." */
+.connection-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #1a1a1a;
+  z-index: 10000;
+  /* Анимация раунда должна быть поверх */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  opacity: 1;
+}
+
+.connection-text {
+  font-size: 48px;
+  font-weight: bold;
+  color: #ffffff;
+  text-align: center;
+  letter-spacing: 4px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Кнопка "Начать" */
+.start-game-btn {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: #ffffff;
+  border: 2px solid #4CAF50;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
+
+.start-game-btn:hover {
+  background: linear-gradient(135deg, #45a049 0%, #4CAF50 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+/* Анимация раунда */
+.round-animation {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 99999;
+  pointer-events: none;
+  animation: roundFadeInOut 3.5s ease-in-out;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.round-text {
+  font-size: 72px;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 
+    0 0 20px rgba(255, 255, 255, 0.8),
+    0 0 40px rgba(255, 215, 0, 0.6),
+    0 0 60px rgba(255, 165, 0, 0.4),
+    2px 2px 4px rgba(0, 0, 0, 0.8);
+  letter-spacing: 8px;
+  font-family: 'Arial Black', 'Arial', sans-serif;
+  text-transform: uppercase;
+}
+
+@keyframes roundFadeInOut {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  85% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+}
+
+/* Вкладки модального окна */
+.admin-modal-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 1.5rem;
+}
+
+.admin-tab {
+  flex: 1;
+  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.admin-tab:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.admin-tab.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border-bottom-color: #4CAF50;
+  font-weight: 600;
+}
+
+/* Содержимое вкладки "Ивенты" */
+.events-tab-content {
+  padding: 1rem 0;
+}
+
+.rounds-control-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.rounds-control-section h3 {
+  margin: 0 0 0.5rem 0;
+  color: #ffffff;
+  font-size: 24px;
+}
+
+.rounds-config {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rounds-config label {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.rounds-input {
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 16px;
+  width: 120px;
+  transition: all 0.3s ease;
+}
+
+.rounds-input:focus {
+  outline: none;
+  border-color: #4CAF50;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.current-round-info {
+  padding: 12px;
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  border-radius: 8px;
+}
+
+.current-round-info p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 16px;
+}
+
+.round-number {
+  font-size: 24px;
+  font-weight: bold;
+  color: #4CAF50;
+}
+
+.rounds-buttons h4 {
+  margin: 0 0 1rem 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 18px;
+}
+
+.round-buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.round-btn {
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.round-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.round-btn.active {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  border-color: #4CAF50;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+.round-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

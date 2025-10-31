@@ -65,6 +65,7 @@ export const AdminPanel = () => {
           case "game_reset":
             setResetMessage("✅ Игра успешно сброшена!");
             setGameStarted(false);
+            setGameReady(false);
             setResetConfirm(false);
             setTimeout(() => setResetMessage(""), 3000);
             break;
