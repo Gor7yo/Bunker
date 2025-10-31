@@ -24,6 +24,7 @@ export const Lobby = ({ ws, playerId, players }) => {
   const [totalRounds, setTotalRounds] = useState(5);
   const [showRoundAnimation, setShowRoundAnimation] = useState(false);
   const [eventsModalOpen, setEventsModalOpen] = useState(false);
+  const [highlightedPlayerId, setHighlightedPlayerId] = useState(null);
   const descriptionTimeoutRef = useRef(null);
   const roundAnimationTimeoutRef = useRef(null);
   const peersRef = useRef({});
@@ -290,6 +291,7 @@ export const Lobby = ({ ws, playerId, players }) => {
           setGameStartTime(null);
           setElapsedTime(0);
           setCurrentRound(0);
+          setHighlightedPlayerId(null); // Сбрасываем зеленую рамку при сбросе игры
           // Не скрываем оверлей при сбросе, он появится автоматически когда игра снова начнется
         } else if (data.type === "round_changed") {
           console.log(`🔄 Раунд изменен на: ${data.round}`);
@@ -306,6 +308,8 @@ export const Lobby = ({ ws, playerId, players }) => {
             console.log(`🎬 Скрываем анимацию раунда`);
             setShowRoundAnimation(false);
           }, 3500);
+          // Сбрасываем зеленую рамку при смене раунда
+          setHighlightedPlayerId(null);
         } else if (data.type === "players_update") {
           // Обновляем время игры
           if (data.gameStartTime && data.gameStarted) {
@@ -334,6 +338,11 @@ export const Lobby = ({ ws, playerId, players }) => {
           }
           if (data.totalRounds !== undefined) {
             setTotalRounds(data.totalRounds);
+          }
+          
+          // Обновляем информацию о выделенном игроке
+          if (data.highlightedPlayerId !== undefined) {
+            setHighlightedPlayerId(data.highlightedPlayerId);
           }
           
           // Применяем зеркалирование к видео элементам на основе данных игроков
@@ -712,6 +721,16 @@ export const Lobby = ({ ws, playerId, players }) => {
     }
   };
 
+  // Функция для переключения зеленой рамки игрока
+  const handleTogglePlayerHighlight = (playerId) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'toggle_player_highlight',
+        playerId: playerId
+      }));
+    }
+  };
+
   // Синхронизация выбранного игрока с актуальными данными
   useEffect(() => {
     if (selectedPlayerForAdmin) {
@@ -786,7 +805,10 @@ export const Lobby = ({ ws, playerId, players }) => {
       
       <div className="lobby-grid">
         {players.filter(p => p.role !== "host").map((player, index) => (
-          <div key={player.id} className="player-video-card">
+          <div 
+            key={player.id} 
+            className={`player-video-card ${highlightedPlayerId === player.id ? 'highlighted' : ''}`}
+          >
             {/* Верхняя панель */}
             <div className="player-top-bar">
               <div className="player-number">{index + 1}</div>
@@ -944,6 +966,17 @@ export const Lobby = ({ ws, playerId, players }) => {
               <div className="camera-off-overlay">
                 <div className="camera-off-text">Камера выключена</div>
               </div>
+            )}
+
+            {/* Зеленая кнопка выделения (только для хоста) */}
+            {isHost && (
+              <button
+                className={`highlight-btn ${highlightedPlayerId === player.id ? 'active' : ''}`}
+                onClick={() => handleTogglePlayerHighlight(player.id)}
+                title={highlightedPlayerId === player.id ? 'Снять выделение' : 'Выделить игрока'}
+              >
+                ✓
+              </button>
             )}
           </div>
         ))}

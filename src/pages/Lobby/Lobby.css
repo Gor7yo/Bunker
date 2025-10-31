@@ -472,6 +472,12 @@
   border: 3px solid #ff8c00;
   border-radius: 0;
   box-shadow: 0 4px 15px rgba(255, 140, 0, 0.3);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.player-video-card.highlighted {
+  border: 3px solid #4CAF50;
+  box-shadow: 0 4px 20px rgba(76, 175, 80, 0.6), 0 0 30px rgba(76, 175, 80, 0.4);
 }
 
 .player-video {
@@ -1654,4 +1660,48 @@
 .round-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Зеленая кнопка выделения игрока */
+.highlight-btn {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  width: 35px;
+  height: 35px;
+  background: rgba(76, 175, 80, 0.8);
+  border: 2px solid #4CAF50;
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.4);
+}
+
+.highlight-btn:hover {
+  background: rgba(76, 175, 80, 1);
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.6);
+}
+
+.highlight-btn.active {
+  background: #4CAF50;
+  border-color: #45a049;
+  box-shadow: 0 0 15px rgba(76, 175, 80, 0.8);
+  animation: highlightPulse 2s ease-in-out infinite;
+}
+
+@keyframes highlightPulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.8);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(76, 175, 80, 1);
+  }
 }
