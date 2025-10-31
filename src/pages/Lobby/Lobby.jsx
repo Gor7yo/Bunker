@@ -17,7 +17,7 @@ export const Lobby = ({ ws, playerId, players }) => {
   const [myCharacteristicsModal, setMyCharacteristicsModal] = useState(false);
   const [gameStartTime, setGameStartTime] = useState(null);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [dropdownMenuOpen, setDropdownMenuOpen] = useState(false);
+  const [dropdownMenuOpen, setDropdownMenuOpen] = useState(true);
   const [descriptionTooltip, setDescriptionTooltip] = useState(null); // {text, x, y, position, visible}
   const descriptionTimeoutRef = useRef(null);
   const peersRef = useRef({});
@@ -49,7 +49,7 @@ export const Lobby = ({ ws, playerId, players }) => {
             height: { ideal: 480 },
             frameRate: { ideal: 30 }
           },
-          audio: false
+          audio: true
         });
         
         streamObtained = true;
@@ -60,9 +60,9 @@ export const Lobby = ({ ws, playerId, players }) => {
           return;
         }
         
-        console.log("✅ Камера инициализирована в Lobby, треки:", {
+        console.log("✅ Камера и микрофон инициализированы в Lobby, треки:", {
           video: stream.getVideoTracks().map(t => ({enabled: t.enabled, readyState: t.readyState})),
-          audio: false
+          audio: stream.getAudioTracks().map(t => ({enabled: t.enabled, readyState: t.readyState}))
         });
         
         streamLockRef.current = true;
@@ -73,7 +73,7 @@ export const Lobby = ({ ws, playerId, players }) => {
         if (videoRefs.current[playerId]) {
           const videoElement = videoRefs.current[playerId];
           videoElement.srcObject = stream;
-          videoElement.muted = true;
+          // Не мутируем локальное видео, чтобы слышать свой звук (если нужно)
           
           await videoElement.play().catch(err => {
             console.warn("⚠️ Автоплей заблокирован, но поток подключен:", err);
@@ -154,14 +154,11 @@ export const Lobby = ({ ws, playerId, players }) => {
       rtcpMuxPolicy: 'require'
     });
 
-    // 🔥 ВАЖНО: Добавляем только видео треки (без звука)
+    // 🔥 Добавляем все треки (видео и аудио)
     if (localStream) {
       localStream.getTracks().forEach(track => {
-        // Добавляем только видео треки, аудио пропускаем
-        if (track.kind === 'video') {
-          console.log(`📤 Добавляем локальный трек ${track.kind} для ${remoteId}`);
-          pc.addTrack(track, localStream);
-        }
+        console.log(`📤 Добавляем локальный трек ${track.kind} для ${remoteId}`);
+        pc.addTrack(track, localStream);
       });
     }
 
@@ -183,16 +180,9 @@ export const Lobby = ({ ws, playerId, players }) => {
           if (videoRefs.current[remoteId]) {
             const videoElement = videoRefs.current[remoteId];
             
-            // Отключаем все аудио треки из удаленного потока
-            remoteStream.getAudioTracks().forEach(audioTrack => {
-              audioTrack.stop();
-              audioTrack.enabled = false;
-              console.log(`🔇 Отключен аудио трек от ${remoteId}`);
-            });
-            
             videoElement.srcObject = remoteStream;
             videoElement.playsInline = true;
-            videoElement.muted = true; // Обязательно отключаем звук
+            // Звук включен для удаленных игроков
             
             // Применяем зеркалирование к удаленному видео, если оно включено у этого игрока
             // Находим информацию об игроке из списка players
@@ -202,7 +192,7 @@ export const Lobby = ({ ws, playerId, players }) => {
             }
             
             videoElement.play().then(() => {
-              console.log(`✅ Видео воспроизводится для ${remoteId}`);
+              console.log(`✅ Видео и аудио воспроизводятся для ${remoteId}`);
             }).catch(err => {
               console.warn(`⚠️ Автоплей заблокирован для ${remoteId}:`, err);
             });
@@ -242,7 +232,7 @@ export const Lobby = ({ ws, playerId, players }) => {
       setTimeout(async () => {
         try {
           const offer = await pc.createOffer({
-            offerToReceiveAudio: false,
+            offerToReceiveAudio: true,
             offerToReceiveVideo: true
           });
           await pc.setLocalDescription(offer);
@@ -728,7 +718,7 @@ export const Lobby = ({ ws, playerId, players }) => {
                   // Если это локальный игрок и есть поток - сразу подключаем
                   if (player.id === playerId && localStream) {
                     el.srcObject = localStream;
-                    el.muted = true;
+                    // Локальное видео не мутим, чтобы не создавать эхо
                     el.play().catch(console.warn);
                   }
                   
@@ -740,7 +730,6 @@ export const Lobby = ({ ws, playerId, players }) => {
               }}
               autoPlay
               playsInline
-              muted={true}
               className={`player-video ${bannedPlayers.has(player.id) ? 'banned' : ''}`}
             />
 
