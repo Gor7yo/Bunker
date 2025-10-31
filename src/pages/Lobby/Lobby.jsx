@@ -5,6 +5,8 @@ import { GameCharacteristics } from "../../components/GameCharacteristics/GameCh
 import { DataContext } from "../../context/DataContext";
 import { FaBan } from "react-icons/fa6";
 import { GiHolyGrail } from "react-icons/gi";
+import { TbMicrophone2Off } from "react-icons/tb";
+import { TbMicrophone2 } from "react-icons/tb";
 
 export const Lobby = ({ ws, playerId, players }) => {
   const { mirrorCamera } = useContext(DataContext);
@@ -25,6 +27,11 @@ export const Lobby = ({ ws, playerId, players }) => {
   const [showRoundAnimation, setShowRoundAnimation] = useState(false);
   const [eventsModalOpen, setEventsModalOpen] = useState(false);
   const [highlightedPlayerId, setHighlightedPlayerId] = useState(null);
+  const [votingActive, setVotingActive] = useState(false);
+  const [votedPlayers, setVotedPlayers] = useState([]);
+  const [votingResultsModal, setVotingResultsModal] = useState(null); // {candidates: [], allResults: []}
+  const [votingHistory, setVotingHistory] = useState([]); // История голосований
+  const [votingTabOpen, setVotingTabOpen] = useState(false); // Вкладка "Голосование"
   const descriptionTimeoutRef = useRef(null);
   const roundAnimationTimeoutRef = useRef(null);
   const peersRef = useRef({});
@@ -310,6 +317,67 @@ export const Lobby = ({ ws, playerId, players }) => {
           }, 3500);
           // Сбрасываем зеленую рамку при смене раунда
           setHighlightedPlayerId(null);
+          // Сбрасываем голосование при смене раунда
+          setVotingActive(false);
+          setVotedPlayers([]);
+        } else if (data.type === "voting_started") {
+          console.log("🗳️ Голосование началось");
+          setVotingActive(true);
+          setVotedPlayers([]);
+        } else if (data.type === "voting_cancelled") {
+          console.log("🗳️ Голосование отменено");
+          setVotingActive(false);
+          setVotedPlayers([]);
+        } else if (data.type === "voting_completed") {
+          console.log("🗳️ Голосование завершено:", data.candidates);
+          setVotingActive(false);
+          setVotedPlayers([]);
+          // Показываем модальное окно с результатами хосту
+          if (isHost && data.allResults) {
+            setVotingResultsModal({
+              candidates: data.candidates || [],
+              allResults: data.allResults
+            });
+            // Добавляем в историю только один раз
+            setVotingHistory(prev => {
+              // Проверяем, нет ли уже такого голосования (по timestamp последнего)
+              if (prev.length > 0 && prev[prev.length - 1].results.length === data.allResults.length) {
+                // Сравниваем результаты - если одинаковые, не добавляем
+                const lastResults = prev[prev.length - 1].results;
+                const isDuplicate = lastResults.every((r, i) => 
+                  r.id === data.allResults[i].id && r.votes === data.allResults[i].votes
+                );
+                if (isDuplicate) {
+                  return prev;
+                }
+              }
+              // Добавляем новое голосование в начало истории (сверху)
+              return [{
+                timestamp: Date.now(),
+                results: data.allResults,
+                candidates: data.candidates || []
+              }, ...prev];
+            });
+          }
+        } else if (data.type === "voting_results") {
+          console.log("🗳️ Получены результаты голосования:", data.allResults);
+          // Показываем модальное окно с результатами хосту (только если еще не показано)
+          if (isHost && data.allResults && !votingResultsModal) {
+            setVotingResultsModal({
+              candidates: data.candidates || [],
+              allResults: data.allResults
+            });
+            // Не добавляем в историю здесь, т.к. это дубликат voting_completed
+          }
+        } else if (data.type === "voting_tie") {
+          console.log("🗳️ Ничья в голосовании, нужно выбрать:", data.candidates);
+          // Показываем модальное окно, если еще не показано
+          if (isHost && data.allResults && !votingResultsModal) {
+            setVotingResultsModal({
+              candidates: data.candidates,
+              allResults: data.allResults
+            });
+          }
         } else if (data.type === "players_update") {
           // Обновляем время игры
           if (data.gameStartTime && data.gameStarted) {
@@ -343,6 +411,14 @@ export const Lobby = ({ ws, playerId, players }) => {
           // Обновляем информацию о выделенном игроке
           if (data.highlightedPlayerId !== undefined) {
             setHighlightedPlayerId(data.highlightedPlayerId);
+          }
+          
+          // Обновляем информацию о голосовании
+          if (data.votingActive !== undefined) {
+            setVotingActive(data.votingActive);
+          }
+          if (data.votedPlayers !== undefined) {
+            setVotedPlayers(data.votedPlayers);
           }
           
           // Применяем зеркалирование к видео элементам на основе данных игроков
@@ -731,6 +807,42 @@ export const Lobby = ({ ws, playerId, players }) => {
     }
   };
 
+  // Функция для запуска голосования (только для хоста)
+  const handleStartVoting = () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'start_voting'
+      }));
+    }
+  };
+
+  // Функция для отмены голосования (только для хоста)
+  const handleCancelVoting = () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'cancel_voting'
+      }));
+    }
+  };
+
+  // Функция для голосования за вылет игрока
+  const handleVoteToKick = (targetPlayerId) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'vote_to_kick',
+        targetPlayerId: targetPlayerId
+      }));
+    }
+  };
+
+  // Функция для выбора кандидата на вылет (только для хоста, при ничьей)
+  const handleSelectCandidateToKick = (playerId) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      toggleBanPlayer(playerId);
+      setVotingResultsModal(null);
+    }
+  };
+
   // Синхронизация выбранного игрока с актуальными данными
   useEffect(() => {
     if (selectedPlayerForAdmin) {
@@ -938,11 +1050,6 @@ export const Lobby = ({ ws, playerId, players }) => {
                 </div>
               </>
             )}
-            
-            {isHost && <div className="player-status">
-              {peersRef.current[player.id]?.connectionState === 'connected' ? '🟢' : '🟡'}
-              {player.ready ? ' ✅' : ' ⏳'}
-            </div>}
 
             {/* Кнопка изгнания (только для админа) */}
             {isHost && (
@@ -969,18 +1076,99 @@ export const Lobby = ({ ws, playerId, players }) => {
             )}
 
             {/* Зеленая кнопка выделения (только для хоста) */}
-            {isHost && (
+            {isHost && !bannedPlayers.has(player.id) && (
               <button
                 className={`highlight-btn ${highlightedPlayerId === player.id ? 'active' : ''}`}
                 onClick={() => handleTogglePlayerHighlight(player.id)}
                 title={highlightedPlayerId === player.id ? 'Снять выделение' : 'Выделить игрока'}
               >
-                ✓
+                {highlightedPlayerId === player.id ?  <TbMicrophone2Off className="highlight-btn-icon" /> : <TbMicrophone2 className="highlight-btn-icon" />}
+              </button>
+            )}
+
+            {/* Кнопка выставить на голосование (для всех игроков, кроме себя и хоста, только во время голосования, если игрок не изгнан) */}
+            {votingActive && player.id !== playerId && !isHost && !bannedPlayers.has(player.id) && !bannedPlayers.has(playerId) && (
+              <button
+                className={`vote-kick-btn ${votedPlayers.includes(playerId) ? 'disabled' : ''}`}
+                onClick={() => handleVoteToKick(player.id)}
+                disabled={votedPlayers.includes(playerId)}
+                title={votedPlayers.includes(playerId) ? 'Вы уже проголосовали' : 'Выставить на вылет'}
+              >
+                🚪
               </button>
             )}
           </div>
         ))}
       </div>
+
+      {/* Модальное окно результатов голосования */}
+      {votingResultsModal && votingResultsModal.allResults && (
+        <div className="voting-results-modal-overlay" onClick={() => setVotingResultsModal(null)}>
+          <div className="voting-results-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="voting-results-header">
+              <h2>🗳️ Результаты голосования</h2>
+              <button 
+                className="close-btn"
+                onClick={() => setVotingResultsModal(null)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="voting-results-content">
+              {/* Полные результаты всех игроков */}
+              <div className="all-voting-results">
+                <h4>Результаты по всем игрокам:</h4>
+                <div className="results-list">
+                  {votingResultsModal.allResults.map((result) => (
+                    <div 
+                      key={result.id} 
+                      className={`result-item ${votingResultsModal.candidates.some(c => c.id === result.id) ? 'candidate-highlight' : ''}`}
+                    >
+                      <span className="result-name">{result.name}</span>
+                      <span className="result-votes">{result.votes} голос(ов)</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Если несколько кандидатов с одинаковым количеством голосов */}
+              {votingResultsModal.candidates && votingResultsModal.candidates.length > 1 && (
+                <div className="candidates-selection">
+                  <p className="tie-message">Несколько игроков получили одинаковое количество голосов. Выберите, кого исключить:</p>
+                  <div className="candidates-list">
+                    {votingResultsModal.candidates.map((candidate) => (
+                      <button
+                        key={candidate.id}
+                        className="candidate-btn"
+                        onClick={() => handleSelectCandidateToKick(candidate.id)}
+                      >
+                        <span className="candidate-name">{candidate.name}</span>
+                        <span className="candidate-votes">{candidate.votes} голос(ов)</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Если один кандидат - автоматически изгнан */}
+              {votingResultsModal.candidates && votingResultsModal.candidates.length === 1 && (
+                <div className="single-candidate-info">
+                  <p className="candidate-message">
+                    Игрок <strong>{votingResultsModal.candidates[0].name}</strong> получил наибольшее количество голосов и был исключен из игры.
+                  </p>
+                </div>
+              )}
+
+              {/* Если нет кандидатов */}
+              {(!votingResultsModal.candidates || votingResultsModal.candidates.length === 0) && (
+                <div className="no-candidates-info">
+                  <p>Никто не получил голосов.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Тултип с описанием характеристики */}
       {descriptionTooltip && (
@@ -1092,6 +1280,7 @@ export const Lobby = ({ ws, playerId, players }) => {
                 onClick={() => {
                   setIsAdminModalOpen(false);
                   setEventsModalOpen(false);
+                  setVotingTabOpen(false);
                 }}
               >
                 ✕
@@ -1101,21 +1290,36 @@ export const Lobby = ({ ws, playerId, players }) => {
             {/* Вкладки */}
             <div className="admin-modal-tabs">
               <button 
-                className={`admin-tab ${!eventsModalOpen ? 'active' : ''}`}
-                onClick={() => setEventsModalOpen(false)}
+                className={`admin-tab ${!eventsModalOpen && !votingTabOpen ? 'active' : ''}`}
+                onClick={() => {
+                  setEventsModalOpen(false);
+                  setVotingTabOpen(false);
+                }}
               >
                 Карточки игроков
               </button>
               <button 
-                className={`admin-tab ${eventsModalOpen ? 'active' : ''}`}
-                onClick={() => setEventsModalOpen(true)}
+                className={`admin-tab ${eventsModalOpen && !votingTabOpen ? 'active' : ''}`}
+                onClick={() => {
+                  setEventsModalOpen(true);
+                  setVotingTabOpen(false);
+                }}
               >
                 Ивенты
+              </button>
+              <button 
+                className={`admin-tab ${votingTabOpen ? 'active' : ''}`}
+                onClick={() => {
+                  setEventsModalOpen(false);
+                  setVotingTabOpen(true);
+                }}
+              >
+                Голосование
               </button>
             </div>
 
             {/* Содержимое вкладки "Карточки игроков" */}
-            {!eventsModalOpen && (
+            {!eventsModalOpen && !votingTabOpen && (
               <div className="admin-players-list">
               {players.filter(p => p.role !== 'host').map(player => (
                 <div key={player.id} className="admin-player-card">
@@ -1179,6 +1383,70 @@ export const Lobby = ({ ws, playerId, players }) => {
                     </div>
                   </div>
                 </div>
+
+              </div>
+            )}
+
+            {/* Содержимое вкладки "Голосование" */}
+            {votingTabOpen && (
+              <div className="voting-tab-content">
+                <div className="voting-control-section">
+                  <h3>🗳️ Голосование на вылет</h3>
+                  {!votingActive ? (
+                    <div className="voting-control">
+                      <p>Запустите голосование, чтобы игроки могли проголосовать за вылет одного из игроков.</p>
+                      <button
+                        className="start-voting-btn"
+                        onClick={handleStartVoting}
+                        disabled={!gameStartTime || !isHost}
+                      >
+                        Начать голосование
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="voting-status">
+                      <p className="voting-active-text">🗳️ Голосование активно</p>
+                      <p className="voting-info">Игроки выбирают, кого исключить из игры</p>
+                      {isHost && (
+                        <button
+                          className="cancel-voting-btn"
+                          onClick={handleCancelVoting}
+                          title="Отменить голосование"
+                        >
+                          Отменить голосование
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* История голосований */}
+                {votingHistory.length > 0 && (
+                  <div className="voting-history-section">
+                    <h3>📋 История голосований</h3>
+                    <div className="voting-history-list">
+                      {votingHistory.map((entry, index) => {
+                        const date = new Date(entry.timestamp);
+                        const timeString = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                        return (
+                          <div key={index} className="voting-history-item">
+                            <div className="voting-history-header">
+                              <span className="voting-history-time">Голосование #{index + 1} - {timeString}</span>
+                            </div>
+                            <div className="voting-history-results">
+                              {entry.results.map((result, resultIndex) => (
+                                <div key={resultIndex} className={`voting-history-result ${entry.candidates.some(c => c.id === result.id) ? 'candidate' : ''}`}>
+                                  <span className="result-name">{result.name}</span>
+                                  <span className="result-votes">{result.votes} голос(ов)</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

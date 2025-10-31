@@ -1,4 +1,40 @@
 /* Lobby.css */
+
+/* Универсальные стили скроллбаров */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 140, 0, 0.6) rgba(0, 0, 0, 0.3);
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 140, 0, 0.6);
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  transition: background 0.3s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 140, 0, 0.8);
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: rgba(255, 140, 0, 1);
+}
+
+*::-webkit-scrollbar-corner {
+  background: rgba(0, 0, 0, 0.3);
+}
+
 .lobby-container {
   display: flex;
   flex-direction: column;
@@ -184,21 +220,29 @@
   overflow-x: hidden;
 }
 
+/* Специальные стили для .bunker-story (золотой цвет) */
 .bunker-story::-webkit-scrollbar {
   width: 6px;
 }
 
 .bunker-story::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.3);
-}
-
-.bunker-story::-webkit-scrollbar-thumb {
-  background: rgba(212, 175, 55, 0.5);
   border-radius: 3px;
 }
 
+.bunker-story::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.6);
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  transition: background 0.3s ease;
+}
+
 .bunker-story::-webkit-scrollbar-thumb:hover {
-  background: rgba(212, 175, 55, 0.7);
+  background: rgba(212, 175, 55, 0.8);
+}
+
+.bunker-story::-webkit-scrollbar-thumb:active {
+  background: rgba(212, 175, 55, 1);
 }
 
 .story-text {
@@ -337,21 +381,29 @@
   overflow-x: hidden;
 }
 
+/* Специальные стили для .bunker-rules (золотой цвет) */
 .bunker-rules::-webkit-scrollbar {
   width: 6px;
 }
 
 .bunker-rules::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.3);
-}
-
-.bunker-rules::-webkit-scrollbar-thumb {
-  background: rgba(212, 175, 55, 0.5);
   border-radius: 3px;
 }
 
+.bunker-rules::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.6);
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  transition: background 0.3s ease;
+}
+
 .bunker-rules::-webkit-scrollbar-thumb:hover {
-  background: rgba(212, 175, 55, 0.7);
+  background: rgba(212, 175, 55, 0.8);
+}
+
+.bunker-rules::-webkit-scrollbar-thumb:active {
+  background: rgba(212, 175, 55, 1);
 }
 
 .rules-title {
@@ -1278,7 +1330,7 @@
   justify-content: center;
   align-items: center;
   top: 8px;
-  right: 75px;
+  right: 8px;
   width: 35px;
   height: 35px;
   border: none;
@@ -1299,13 +1351,19 @@
 }
 
 .ban-btn.ban {
-  background: #434343;
+  background: #9e3a3a;
   color: #ffffff;
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    0 2px 15px rgba(255, 0, 0, 0.6);
 }
 
 .ban-btn.ban:hover {
   background: #ff6666;
   transform: scale(1.1);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    0 2px 18px rgba(255, 0, 0, 0.8);
 }
 
 .ban-btn.unban {
@@ -1665,8 +1723,8 @@
 /* Зеленая кнопка выделения игрока */
 .highlight-btn {
   position: absolute;
-  bottom: 8px;
-  left: 8px;
+  top: 8px;
+  right: 52px;
   width: 35px;
   height: 35px;
   background: rgba(76, 175, 80, 0.8);
@@ -1697,6 +1755,11 @@
   animation: highlightPulse 2s ease-in-out infinite;
 }
 
+.highlight-btn-icon {
+  font-size: 24px;
+  color: #ffffff;
+}
+
 @keyframes highlightPulse {
   0%, 100% {
     box-shadow: 0 0 15px rgba(76, 175, 80, 0.8);
@@ -1704,4 +1767,364 @@
   50% {
     box-shadow: 0 0 25px rgba(76, 175, 80, 1);
   }
+}
+
+/* Вкладка "Голосование" */
+.voting-tab-content {
+  padding: 1rem 0;
+}
+
+.voting-control-section {
+  margin-bottom: 2rem;
+}
+
+.voting-control-section h3 {
+  margin: 0 0 1rem 0;
+  color: #ffffff;
+  font-size: 24px;
+}
+
+.voting-control {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.voting-control p {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  margin: 0;
+}
+
+.start-voting-btn {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #FF8C00 0%, #FFA500 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(255, 140, 0, 0.3);
+}
+
+.start-voting-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #FFA500 0%, #FF8C00 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 140, 0, 0.5);
+}
+
+.start-voting-btn:disabled {
+  background: rgba(255, 140, 0, 0.3);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.voting-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.voting-active-text {
+  color: #4CAF50;
+  font-size: 18px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.voting-info {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  margin: 0 0 1rem 0;
+}
+
+.cancel-voting-btn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+  margin-top: 0.5rem;
+}
+
+.cancel-voting-btn:hover {
+  background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(231, 76, 60, 0.5);
+}
+
+/* Кнопка выставить на голосование */
+.vote-kick-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 35px;
+  height: 35px;
+  background: linear-gradient(135deg, #FF8C00 0%, #FFA500 100%);
+  border: 2px solid #FF8C00;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  z-index: 100;
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    0 0 10px rgba(255, 140, 0, 0.5);
+}
+
+.vote-kick-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #FFA500 0%, #FF8C00 100%);
+  transform: scale(1.15);
+  box-shadow: 
+    0 2px 10px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(255, 140, 0, 0.7);
+}
+
+.vote-kick-btn:disabled,
+.vote-kick-btn.disabled {
+  background: rgba(255, 140, 0, 0.25);
+  border-color: rgba(255, 140, 0, 0.4);
+  cursor: not-allowed;
+  opacity: 0.5;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transform: none;
+}
+
+/* Модальное окно результатов голосования */
+.voting-results-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20000;
+}
+
+.voting-results-modal {
+  background: #2a2a2a;
+  border: 3px solid #FF8C00;
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.voting-results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.voting-results-header h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 24px;
+}
+
+.voting-results-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.voting-results-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.voting-results-content p {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  font-size: 16px;
+}
+
+.all-voting-results {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.all-voting-results h4 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 18px;
+}
+
+.results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.result-item {
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+
+.result-item.candidate-highlight {
+  background: rgba(255, 140, 0, 0.15);
+  border-color: rgba(255, 140, 0, 0.5);
+}
+
+.result-name {
+  font-size: 16px;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.result-votes {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: bold;
+}
+
+.candidates-selection {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.tie-message {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0 0 1rem 0;
+  font-size: 16px;
+}
+
+.candidates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.candidate-btn {
+  padding: 1rem;
+  background: rgba(255, 140, 0, 0.1);
+  border: 2px solid rgba(255, 140, 0, 0.3);
+  border-radius: 8px;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.candidate-btn:hover {
+  background: rgba(255, 140, 0, 0.2);
+  border-color: #FF8C00;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 140, 0, 0.3);
+}
+
+.candidate-name {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.candidate-votes {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.single-candidate-info,
+.no-candidates-info {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  border-radius: 8px;
+}
+
+.candidate-message {
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+  font-size: 16px;
+}
+
+.candidate-message strong {
+  color: #4CAF50;
+}
+
+/* История голосований */
+.voting-history-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.voting-history-section h3 {
+  margin: 0 0 1rem 0;
+  color: #ffffff;
+  font-size: 24px;
+}
+
+.voting-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.voting-history-item {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.voting-history-header {
+  margin-bottom: 0.75rem;
+}
+
+.voting-history-time {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.voting-history-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.voting-history-result {
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.voting-history-result.candidate {
+  background: rgba(255, 140, 0, 0.15);
+  border: 1px solid rgba(255, 140, 0, 0.3);
 }
