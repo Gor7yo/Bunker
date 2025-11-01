@@ -7,6 +7,7 @@ import { FaBan } from "react-icons/fa6";
 import { GiHolyGrail } from "react-icons/gi";
 import { TbMicrophone2Off } from "react-icons/tb";
 import { TbMicrophone2 } from "react-icons/tb";
+import { MediasoupClient } from "../../utils/mediasoup-client";
 
 export const Lobby = ({ ws, playerId, players }) => {
   const { mirrorCamera } = useContext(DataContext);
@@ -21,6 +22,7 @@ export const Lobby = ({ ws, playerId, players }) => {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [dropdownMenuOpen, setDropdownMenuOpen] = useState(true);
   const [descriptionTooltip, setDescriptionTooltip] = useState(null); // {text, x, y, position, visible}
+  const [showConnectionOverlay, setShowConnectionOverlay] = useState(false); // Показывать ли экран "Подключение..."
   const [currentRound, setCurrentRound] = useState(0);
   const [totalRounds, setTotalRounds] = useState(5);
   const [showRoundAnimation, setShowRoundAnimation] = useState(false);
@@ -41,6 +43,8 @@ export const Lobby = ({ ws, playerId, players }) => {
   const videoRefs = useRef({});
   const isInitialized = useRef(false);
   const streamLockRef = useRef(false); // Защита от дублирования потоков
+  const mediasoupClientRef = useRef(null); // Референс на Mediasoup клиент
+  const useMediasoupSFU = useRef(false); // Флаг использования Mediasoup SFU вместо mesh
 
   // =========================
   // 📹 Инициализация локальной камеры (УПРОЩЕННАЯ)
@@ -69,12 +73,6 @@ export const Lobby = ({ ws, playerId, players }) => {
           audio: true
         });
         
-        // Отключаем все аудио треки (микрофон)
-        stream.getAudioTracks().forEach(track => {
-          track.enabled = false;
-          console.log("🔇 Микрофон отключен:", track.label);
-        });
-        
         streamObtained = true;
         
         if (!mounted) {
@@ -83,7 +81,7 @@ export const Lobby = ({ ws, playerId, players }) => {
           return;
         }
         
-        console.log("✅ Камера инициализирована в Lobby (микрофон отключен), треки:", {
+        console.log("✅ Камера и микрофон инициализированы в Lobby, треки:", {
           video: stream.getVideoTracks().map(t => ({enabled: t.enabled, readyState: t.readyState})),
           audio: stream.getAudioTracks().map(t => ({enabled: t.enabled, readyState: t.readyState}))
         });
@@ -125,6 +123,18 @@ export const Lobby = ({ ws, playerId, players }) => {
       }
     };
   }, [playerId]);
+
+  // Cleanup при размонтировании - отключаем от Mediasoup
+  useEffect(() => {
+    return () => {
+      if (mediasoupClientRef.current) {
+        mediasoupClientRef.current.disconnect();
+        mediasoupClientRef.current = null;
+        useMediasoupSFU.current = false;
+        console.log("🔌 Отключен от Mediasoup SFU при размонтировании");
+      }
+    };
+  }, []);
 
   // =========================
   // 🔄 Управление WebRTC соединениями (УПРОЩЕННОЕ)
@@ -301,8 +311,12 @@ export const Lobby = ({ ws, playerId, players }) => {
 
         if (data.type === "game_started") {
           console.log("🎮 Игра началась!");
+          // Показываем экран "Подключение..." когда игра начинается
+          setShowConnectionOverlay(true);
         } else if (data.type === "game_ready") {
-          console.log("✅ Игра готова");
+          console.log("✅ Игра готова, скрываем экран подключения");
+          // Скрываем экран "Подключение..." когда админ нажал "Начать"
+          setShowConnectionOverlay(false);
         } else if (data.type === "game_reset") {
           console.log("🔄 Игра сброшена администратором");
           setGameStartTime(null);
@@ -407,14 +421,37 @@ export const Lobby = ({ ws, playerId, players }) => {
               allResults: data.allResults
             });
           }
+        } else if (data.type === "mediasoup_connect") {
+          // Подключение к Mediasoup SFU
+          console.log("📡 Подключение к Mediasoup SFU...");
+          connectToMediasoupSFU(data, localStream);
+        } else if (data.type === "mediasoup_new_producer") {
+          // Новый producer от другого игрока - создаем consumer
+          if (mediasoupClientRef.current && data.playerId !== playerId) {
+            mediasoupClientRef.current.consume(data.producerId, data.playerId).catch(err => {
+              console.error(`❌ Ошибка создания consumer для producer ${data.producerId}:`, err);
+            });
+          }
         } else if (data.type === "players_update") {
           // Обновляем время игры
           if (data.gameStartTime && data.gameStarted) {
             setGameStartTime(data.gameStartTime);
             setElapsedTime(data.gameElapsedTime || 0);
+            // Если игра началась, но еще не готова - показываем экран подключения
+            if (!data.gameReady) {
+              setShowConnectionOverlay(true);
+            } else {
+              setShowConnectionOverlay(false);
+            }
           } else if (!data.gameStarted) {
             setGameStartTime(null);
             setElapsedTime(0);
+            setShowConnectionOverlay(false);
+          } else {
+            // Дополнительная проверка готовности, если игра началась
+            if (data.gameReady) {
+              setShowConnectionOverlay(false);
+            }
           }
           
           // Обновляем информацию о раундах
@@ -790,6 +827,15 @@ export const Lobby = ({ ws, playerId, players }) => {
 
   const isHost = players.find(p => p.id === playerId)?.role === "host";
 
+  // Функция для нажатия кнопки "Начать" (только для админа)
+  const handleStartGame = () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'game_ready'
+      }));
+      console.log("✅ Админ нажал 'Начать', отправляем на сервер");
+    }
+  };
 
   // Функция для установки количества раундов
   const handleSetTotalRounds = (rounds) => {
@@ -1250,6 +1296,13 @@ export const Lobby = ({ ws, playerId, players }) => {
         </div>
       )}
 
+      {/* Overlay с надписью "Подключение..." */}
+      {showConnectionOverlay && !isHost && (
+        <div className="connection-overlay">
+          <div className="connection-text">Подключение...</div>
+          
+        </div>
+      )}
 
       <div className="controls-panel">
         <button 
@@ -1269,6 +1322,15 @@ export const Lobby = ({ ws, playerId, players }) => {
           </button>
         )}
         
+        {/* Кнопка "Начать" для админа (только когда игра началась, но еще не готова) */}
+        {isHost && showConnectionOverlay && (
+          <button 
+            onClick={handleStartGame}
+            className="control-btn start-game-btn"
+          >
+            Начать
+          </button>
+        )}
         
         {/* Кнопка для админа */}
         {isHost && (
