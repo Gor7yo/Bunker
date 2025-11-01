@@ -112,7 +112,14 @@ export const JoinRoom = () => {
       setConnected(false);
     };
 
-    return () => {};
+    // Cleanup функция - закрываем соединение при размонтировании компонента
+    return () => {
+      console.log("🔌 Размонтирование JoinRoom, закрываем WebSocket соединение");
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.close();
+      }
+      wsRef.current = null;
+    };
   }, []);
 
   // ==========================
@@ -130,9 +137,14 @@ export const JoinRoom = () => {
       return;
     }
 
+    const playerName = name.trim();
+    
     // Если пользователь еще не вошел (не отправил никнейм), отправляем его сначала
     if (!joined && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      const playerName = name.trim();
+      wsRef.current.send(JSON.stringify({ type: "join", name: playerName }));
+      localStorage.setItem("playerName", playerName);
+    } else if (joined && !ready && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      // Если игрок отменяет готовность, можно обновить никнейм
       wsRef.current.send(JSON.stringify({ type: "join", name: playerName }));
       localStorage.setItem("playerName", playerName);
     }
@@ -189,32 +201,66 @@ export const JoinRoom = () => {
         {connected && !joined && <div className="connection-status">Введите никнейм чтобы присоединиться</div>}
 
         <div className="actions-main-block">
-          <div className="webcam">
-            {/* 🎥 Камера игрока (у ведущего не отображается) */}
-            {role !== "host" ? (
-              <>
-                <MyCamera className="webcamera" />
-                <div className="webcam-controls">
-                  <label className="mirror-toggle">
-                    <input
-                      type="checkbox"
-                      checked={mirrorCamera}
-                      onChange={(e) => setMirrorCamera(e.target.checked)}
-                    />
-                    <span>Отзеркалить камеру</span>
-                  </label>
+          <div className="webcam-container">
+            <div className="webcam">
+              {/* 🎥 Камера игрока (у ведущего не отображается) */}
+              {role !== "host" ? (
+                <>
+                  <MyCamera className="webcamera" />
+                  <div className="webcam-controls">
+                    <label className="mirror-toggle">
+                      <input
+                        type="checkbox"
+                        checked={mirrorCamera}
+                        onChange={(e) => setMirrorCamera(e.target.checked)}
+                      />
+                      <span>Отзеркалить камеру</span>
+                    </label>
+                  </div>
+                  {webcamIsOn ? (
+                    <strong className="webcam-is-on">Ваша вебкамера работает ✅</strong>
+                  ) : (
+                    <strong>Вебкамера не работает ❌</strong>
+                  )}
+                </>
+              ) : (
+                <div className="host-placeholder">
+                  🎙 Ведущий — без камеры
                 </div>
-                {webcamIsOn ? (
-                  <strong className="webcam-is-on">Ваша вебкамера работает ✅</strong>
-                ) : (
-                  <strong>Вебкамера не работает ❌</strong>
-                )}
-              </>
-            ) : (
-              <div className="host-placeholder">
-                🎙 Ведущий — без камеры
+              )}
+            </div>
+
+            <form onSubmit={handleReady} className="username" spellCheck="false">
+              <strong>Введите никнейм</strong>
+              <div className={`input-area ${ready ? "ready" : ""}`}>
+                <input
+                  disabled={ready}
+                  className="usernam-input"
+                  maxLength={24}
+                  type="text"
+                  placeholder="Никнейм"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleReady(e);
+                    }
+                  }}
+                  />
               </div>
-            )}
+
+              <button
+                style={{ borderColor: ready ? "green" : "red" }}
+                className="ready-button"
+                >
+                {ready ? "Отменить ❌" : "Готов ✅"}
+              </button>
+
+              <Link className="back-to-menu" to={"/home"}>
+                <button className="back-to-menu">Вернуться на главную</button>
+              </Link>
+            </form>
           </div>
 
           <div
@@ -225,18 +271,15 @@ export const JoinRoom = () => {
             <ul>
               {players.length > 0 ? (
                 players.map((p) => (
-                  <li key={p.id} className="player-list-item">
+                  <li key={p.id} className={`player-list-item ${p.role === "player" && p.ready ? "ready" : ""} ${p.role === "host" ? "host" : ""}`}>
                     <div className="player-list-info">
                       {p.role === "player" ? (
-                        <>
-                          <div className="player-meta">
-                            <span>{p.name}</span> —{" "}
-                            {p.ready ? "✅ Готов" : "⏳ Не готов"}
-                          </div>
-                        </>
+                        <div className="player-meta">
+                          <span>{p.name}</span>
+                        </div>
                       ) : (
                         <div className="player-meta">
-                          🎙 Ведущий: {p.name}
+                          🎙 {p.name}
                         </div>
                       )}
                     </div>
@@ -247,38 +290,6 @@ export const JoinRoom = () => {
               )}
             </ul>
           </div>
-
-          <form onSubmit={handleReady} className="username" spellCheck="false">
-            <strong>Введите никнейм</strong>
-            <div className={`input-area ${ready ? "ready" : ""}`}>
-              <input
-                disabled={ready}
-                className="usernam-input"
-                maxLength={12}
-                type="text"
-                placeholder="Никнейм"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleReady(e);
-                  }
-                }}
-                />
-            </div>
-
-            <button
-              style={{ borderColor: ready ? "green" : "red" }}
-              className="ready-button"
-              >
-              {ready ? "Отменить ❌" : "Готов ✅"}
-            </button>
-
-            <Link className="back-to-menu" to={"/home"}>
-              <button className="back-to-menu">Вернуться на главную</button>
-            </Link>
-          </form>
         </div>
       </div>
     </div> : <Lobby ws={ws} players={players} playerId={playerIdRef.current} />}

@@ -28,10 +28,14 @@ export const Lobby = ({ ws, playerId, players }) => {
   const [eventsModalOpen, setEventsModalOpen] = useState(false);
   const [highlightedPlayerId, setHighlightedPlayerId] = useState(null);
   const [votingActive, setVotingActive] = useState(false);
+  const [votingPhase, setVotingPhase] = useState(null); // null | "selection" | "voting"
+  const [votingCandidates, setVotingCandidates] = useState([]); // Массив ID кандидатов
+  const [selectedCandidates, setSelectedCandidates] = useState(new Set()); // Выбранные кандидаты хоста для выставления
   const [votedPlayers, setVotedPlayers] = useState([]);
   const [votingResultsModal, setVotingResultsModal] = useState(null); // {candidates: [], allResults: []}
   const [votingHistory, setVotingHistory] = useState([]); // История голосований
   const [votingTabOpen, setVotingTabOpen] = useState(false); // Вкладка "Голосование"
+  const [showVotingAnimation, setShowVotingAnimation] = useState(false); // Анимация "Голосование"
   const descriptionTimeoutRef = useRef(null);
   const roundAnimationTimeoutRef = useRef(null);
   const peersRef = useRef({});
@@ -319,19 +323,38 @@ export const Lobby = ({ ws, playerId, players }) => {
           setHighlightedPlayerId(null);
           // Сбрасываем голосование при смене раунда
           setVotingActive(false);
+          setVotingPhase(null);
+          setVotingCandidates([]);
+          setSelectedCandidates(new Set());
           setVotedPlayers([]);
+          setShowVotingAnimation(false);
         } else if (data.type === "voting_started") {
           console.log("🗳️ Голосование началось");
           setVotingActive(true);
+          setVotingPhase("voting");
+          setVotingCandidates(data.candidates || []);
           setVotedPlayers([]);
+          // Показываем анимацию "Голосование"
+          setShowVotingAnimation(true);
+          setTimeout(() => {
+            setShowVotingAnimation(false);
+          }, 3500);
         } else if (data.type === "voting_cancelled") {
           console.log("🗳️ Голосование отменено");
           setVotingActive(false);
+          setVotingPhase(null);
+          setVotingCandidates([]);
+          setSelectedCandidates(new Set());
           setVotedPlayers([]);
+          setShowVotingAnimation(false);
         } else if (data.type === "voting_completed") {
           console.log("🗳️ Голосование завершено:", data.candidates);
           setVotingActive(false);
+          setVotingPhase(null);
+          setVotingCandidates([]);
+          setSelectedCandidates(new Set());
           setVotedPlayers([]);
+          setShowVotingAnimation(false);
           // Показываем модальное окно с результатами хосту
           if (isHost && data.allResults) {
             setVotingResultsModal({
@@ -416,6 +439,12 @@ export const Lobby = ({ ws, playerId, players }) => {
           // Обновляем информацию о голосовании
           if (data.votingActive !== undefined) {
             setVotingActive(data.votingActive);
+          }
+          if (data.votingPhase !== undefined) {
+            setVotingPhase(data.votingPhase);
+          }
+          if (data.votingCandidates !== undefined) {
+            setVotingCandidates(data.votingCandidates);
           }
           if (data.votedPlayers !== undefined) {
             setVotedPlayers(data.votedPlayers);
@@ -807,12 +836,53 @@ export const Lobby = ({ ws, playerId, players }) => {
     }
   };
 
-  // Функция для запуска голосования (только для хоста)
-  const handleStartVoting = () => {
+  // Функция для начала этапа выбора кандидатов (только для хоста)
+  const handleStartVotingSelection = () => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({
-        type: 'start_voting'
+        type: 'start_voting_selection'
       }));
+      setSelectedCandidates(new Set());
+    }
+  };
+
+  // Функция для переключения выбора кандидата
+  const handleToggleCandidate = (playerId) => {
+    setSelectedCandidates(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(playerId)) {
+        newSet.delete(playerId);
+      } else {
+        newSet.add(playerId);
+      }
+      return newSet;
+    });
+  };
+
+  // Функция для отправки списка кандидатов на сервер
+  const handleSetCandidates = () => {
+    if (ws && ws.readyState === WebSocket.OPEN && selectedCandidates.size > 0) {
+      ws.send(JSON.stringify({
+        type: 'set_voting_candidates',
+        candidates: Array.from(selectedCandidates)
+      }));
+    }
+  };
+
+  // Функция для подтверждения кандидатов и начала голосования (только для хоста)
+  const handleConfirmVotingCandidates = () => {
+    if (ws && ws.readyState === WebSocket.OPEN && selectedCandidates.size > 0) {
+      // Сначала отправляем список кандидатов
+      ws.send(JSON.stringify({
+        type: 'set_voting_candidates',
+        candidates: Array.from(selectedCandidates)
+      }));
+      // Затем подтверждаем и запускаем голосование
+      setTimeout(() => {
+        ws.send(JSON.stringify({
+          type: 'confirm_voting_candidates'
+        }));
+      }, 100);
     }
   };
 
@@ -919,7 +989,11 @@ export const Lobby = ({ ws, playerId, players }) => {
         {players.filter(p => p.role !== "host").map((player, index) => (
           <div 
             key={player.id} 
-            className={`player-video-card ${highlightedPlayerId === player.id ? 'highlighted' : ''}`}
+            className={`player-video-card ${highlightedPlayerId === player.id ? 'highlighted' : ''} ${
+              (votingPhase === "selection" && selectedCandidates.has(player.id)) || 
+              (votingPhase === "voting" && votingCandidates.includes(player.id)) 
+                ? 'candidate-selected' : ''
+            }`}
           >
             {/* Верхняя панель */}
             <div className="player-top-bar">
@@ -1086,8 +1160,8 @@ export const Lobby = ({ ws, playerId, players }) => {
               </button>
             )}
 
-            {/* Кнопка выставить на голосование (для всех игроков, кроме себя и хоста, только во время голосования, если игрок не изгнан) */}
-            {votingActive && player.id !== playerId && !isHost && !bannedPlayers.has(player.id) && !bannedPlayers.has(playerId) && (
+            {/* Кнопка выставить на голосование (для всех игроков, кроме себя и хоста, только во время голосования, если игрок не изгнан и является кандидатом) */}
+            {votingActive && player.id !== playerId && !isHost && !bannedPlayers.has(player.id) && !bannedPlayers.has(playerId) && votingCandidates.includes(player.id) && (
               <button
                 className={`vote-kick-btn ${votedPlayers.includes(playerId) ? 'disabled' : ''}`}
                 onClick={() => handleVoteToKick(player.id)}
@@ -1266,6 +1340,13 @@ export const Lobby = ({ ws, playerId, players }) => {
         </div>
       )}
 
+      {/* Анимация начала голосования */}
+      {showVotingAnimation && (
+        <div className="round-animation">
+          <div className="round-text voting-text">Голосование</div>
+        </div>
+      )}
+
       {/* Модальное окно для админа */}
       {isAdminModalOpen && (
         <div className="admin-modal-overlay" onClick={() => {
@@ -1392,21 +1473,64 @@ export const Lobby = ({ ws, playerId, players }) => {
               <div className="voting-tab-content">
                 <div className="voting-control-section">
                   <h3>🗳️ Голосование на вылет</h3>
-                  {!votingActive ? (
+                  {votingPhase === null ? (
                     <div className="voting-control">
-                      <p>Запустите голосование, чтобы игроки могли проголосовать за вылет одного из игроков.</p>
+                      <p>Начните процесс голосования: сначала выберите кандидатов, затем запустите голосование.</p>
                       <button
                         className="start-voting-btn"
-                        onClick={handleStartVoting}
+                        onClick={handleStartVotingSelection}
                         disabled={!gameStartTime || !isHost}
                       >
-                        Начать голосование
+                        Начать выбор кандидатов
                       </button>
+                    </div>
+                  ) : votingPhase === "selection" ? (
+                    <div className="voting-selection-section">
+                      <h4>Выберите кандидатов для голосования:</h4>
+                      <div className="candidates-selection-list">
+                        {players
+                          .filter(p => p.role !== "host" && !bannedPlayers.has(p.id))
+                          .map(player => (
+                            <label key={player.id} className="candidate-checkbox">
+                              <input
+                                type="checkbox"
+                                checked={selectedCandidates.has(player.id)}
+                                onChange={() => handleToggleCandidate(player.id)}
+                              />
+                              <span>{player.name}</span>
+                            </label>
+                          ))}
+                      </div>
+                      <div className="candidates-actions">
+                        <button
+                          className="confirm-candidates-btn"
+                          onClick={handleConfirmVotingCandidates}
+                          disabled={selectedCandidates.size === 0}
+                        >
+                          Подтвердить и начать голосование ({selectedCandidates.size})
+                        </button>
+                        <button
+                          className="cancel-voting-btn"
+                          onClick={handleCancelVoting}
+                          title="Отменить"
+                        >
+                          Отменить
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="voting-status">
                       <p className="voting-active-text">🗳️ Голосование активно</p>
-                      <p className="voting-info">Игроки выбирают, кого исключить из игры</p>
+                      <p className="voting-info">Игроки выбирают из кандидатов, кого исключить из игры</p>
+                      <div className="voting-candidates-list">
+                        <p>Кандидаты:</p>
+                        <ul>
+                          {votingCandidates.map(candidateId => {
+                            const candidate = players.find(p => p.id === candidateId);
+                            return candidate ? <li key={candidateId}>{candidate.name}</li> : null;
+                          })}
+                        </ul>
+                      </div>
                       {isHost && (
                         <button
                           className="cancel-voting-btn"

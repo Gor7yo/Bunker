@@ -1,213 +1,416 @@
-.username {
-	display: flex;
-	flex-direction: column;
-	gap: 7px;
-	width: 100%;
-	align-items: center;
+/* JoinRoom.css - Стиль в соответствии с Lobby.css */
+
+/* Универсальные стили скроллбаров */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 140, 0, 0.6) rgba(0, 0, 0, 0.3);
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 140, 0, 0.6);
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  transition: background 0.3s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 140, 0, 0.8);
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: rgba(255, 140, 0, 1);
 }
 
 .join-room {
-	display: flex;
-	flex-direction: column;
-	height: 700px;
-	background-color: #161616;
-	padding: 12px;
-	border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  padding: 20px;
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
 }
 
-.back-to-menu {
-	text-decoration: none;
-	color: #fff;
-	padding: 6px;
-	border-radius: 8px;
-	font-weight: 700;
+.actions-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  max-width: 1400px;
+  width: 100%;
+  height: 100%;
+  margin: 0 auto;
+  overflow: hidden;
 }
 
-.dropdown {
-	position: absolute;
-	width: 100%;
-	height: 100%;
-	top: 0;
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	background-color: #00000079;
-	left: 0;
-	z-index: 1111;
-	color: black;
+.actions-block h2 {
+  font-size: 24px;
+  font-weight: bold;
+  color: #FF8C00;
+  text-shadow: 0 2px 8px rgba(255, 140, 0, 0.5);
+  margin: 0;
 }
 
-.dropdown-block {
-	background: linear-gradient(135deg, 
-        #856868 0%, 
-        #442b2b 25%, 
-        #462222 50%, 
-        #422a2a 75%, 
-        #302424 100%);
-    border: 2px solid #b65916;
-    border-radius: 5px;
-    box-shadow: 0 0 15px rgba(139, 69, 19, 0.4);
-    color: #fff;
-	padding: 18px 18px 28px;
-	border-radius: 20px;
+.actions-block p {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
 }
 
-.cross {
-	font-size: 18px;
-	transform-origin: center;
-	transition: .2s ease;
-
-	&:hover {
-		font-size: 20px;
-	}
-}
-
-.cross-block {
-	display: flex;
-	align-items: center;
-	justify-content: end;
-	cursor: pointer;
-	width: 20px;
-	max-height: 10px;
-	width: 100%;
-}
-
-.username input {
-	width: 300px;
-	padding: 12px;
-	font-size: 18px;
-	font-weight: 700;
-	background: var(--linearGrad);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.input-area {
-	background-color: #ffffff;
-	border-radius: 12px;
-	width: 300px;
-	display: flex;
-	transition: .2s ease;
-}
-
-.input-area input {
-	width: 100%;
-}
-
-.username input::-webkit-input-placeholder {
-	font-size: 18px;
-	font-weight: 700;
-}
-
-.ready-button {
-	padding: 8px;
-	width: 220px;
-	border-radius: 12px;
-	border-radius: 12px;
-	border: 1px solid #370072;
-	color: white;
-	font-size: 18px;
-	font-weight: 700;
-	cursor: pointer;
-}
-
-.webcamera {
-	width: 300px;
-}
-
-.webcam {
-	height: 320px;
-}
-
-.webcam-controls {
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	margin: 10px 0;
-	gap: 8px;
-}
-
-.mirror-toggle {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	cursor: pointer;
-	user-select: none;
-	font-size: 14px;
-	color: #fff;
-	padding: 8px 12px;
-	background: rgba(255, 255, 255, 0.1);
-	border-radius: 8px;
-	transition: background 0.2s ease;
-}
-
-.mirror-toggle:hover {
-	background: rgba(255, 255, 255, 0.15);
-}
-
-.mirror-toggle input[type="checkbox"] {
-	cursor: pointer;
-	width: 18px;
-	height: 18px;
-	accent-color: #ff8c00;
-}
-
-.webcam strong {
-	font-size: 12px;
-}
-
-.username-title {
-	color: white;
-}
-
-.input-area.ready {
-	background-color: #ffffff9b;
+.actions-block h3 {
+  font-size: 18px;
+  color: #ffffff;
+  margin: 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .actions-main-block {
-	display: grid;
-	height: 100%;
-	grid-template-columns: 1fr 300px;
-	justify-content: space-between;
-	margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: start;
+  gap: 25px;
 }
 
-.select-role {
-	font-size: 18px;
-	background-color: none;
-	transition: .2s ease;
-	padding: 0 12px;
-	border-radius: 12px;
-	border: none;
-	outline: none;
+.webcam-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
 }
 
-.select-label {
-	font-size: 18px;
-	font-weight: 700;
+.error-message {
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  color: #ffffff;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+  margin: 10px 0;
 }
 
-.select-block {
-	display: flex;
-	gap: 18px;
+.connection-status {
+  padding: 10px 16px;
+  background: rgba(255, 140, 0, 0.2);
+  border: 1px solid rgba(255, 140, 0, 0.5);
+  border-radius: 8px;
+  font-size: 14px;
+  color: #FF8C00;
 }
 
+/* Блок с веб-камерой */
+.webcam {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(255, 140, 0, 0.3);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  width: 720px;
+  margin: 0;
+}
+
+.webcam .webcamera {
+  width: 100%;
+  max-width: 450px;
+  height: auto;
+  border-radius: 8px;
+  border: 2px solid rgba(255, 140, 0, 0.5);
+}
+
+.webcam-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.mirror-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 14px;
+  color: #ffffff;
+  padding: 8px 16px;
+  background: rgba(255, 140, 0, 0.2);
+  border: 1px solid rgba(255, 140, 0, 0.3);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.mirror-toggle:hover {
+  background: rgba(255, 140, 0, 0.3);
+  border-color: rgba(255, 140, 0, 0.5);
+}
+
+.mirror-toggle input[type="checkbox"] {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  accent-color: #ff8c00;
+}
+
+.webcam strong {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.webcam-is-on {
+  color: #4CAF50;
+}
+
+.webcam .host-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 450px;
+  height: 300px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px dashed rgba(255, 140, 0, 0.5);
+  border-radius: 8px;
+  font-size: 27px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Список игроков */
 .players-list {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: start;
-	padding: 10px 4px;
-	text-decoration: none;
-	width: 200px;
-	border: 2px solid #366444;
-	border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(255, 140, 0, 0.3);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  overflow-y: auto;
+  width: 300px;
+  margin: 0;
 }
 
-ul {
-	list-style: none;
-	display: flex;
-	flex-direction: column;
-	gap: 5px;
+.players-list h4 {
+  font-size: 14px;
+  color: #FF8C00;
+  margin: 0 0 8px 0;
+  text-align: center;
+}
+
+.players-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  align-items: center;
+}
+
+.player-list-item {
+  padding: 12px 16px;
+  background: rgba(231, 76, 60, 0.3);
+  border: 2px solid rgba(231, 76, 60, 0.6);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  width: 100%;
+  max-width: 200px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.2);
+}
+
+.player-list-item.ready {
+  background: rgba(76, 175, 80, 0.3);
+  border-color: rgba(76, 175, 80, 0.6);
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
+}
+
+.player-list-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+}
+
+.player-list-item.ready:hover {
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+.player-list-item.host {
+  background: rgba(255, 140, 0, 0.3);
+  border-color: rgba(255, 140, 0, 0.6);
+  box-shadow: 0 2px 8px rgba(255, 140, 0, 0.2);
+}
+
+.player-list-item.host:hover {
+  box-shadow: 0 4px 12px rgba(255, 140, 0, 0.4);
+}
+
+.player-list-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.player-meta {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Форма ввода никнейма */
+.username {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 300px;
+  align-items: center;
+  margin: 0 auto;
+}
+
+.username strong {
+  font-size: 18px;
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.input-area {
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(255, 140, 0, 0.5);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 300px;
+  display: flex;
+  transition: all 0.3s ease;
+  padding: 4px;
+}
+
+.input-area:hover {
+  border-color: rgba(255, 140, 0, 0.7);
+}
+
+.input-area.ready {
+  background: rgba(76, 175, 80, 0.2);
+  border-color: rgba(76, 175, 80, 0.5);
+}
+
+.input-area input {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 16px;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+}
+
+.input-area input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.input-area input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ready-button {
+  padding: 12px 32px;
+  width: 100%;
+  max-width: 300px;
+  border-radius: 12px;
+  border: 2px solid;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.ready-button[style*="green"] {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  border-color: #4CAF50;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.ready-button[style*="green"]:hover {
+  background: linear-gradient(135deg, #45a049 0%, #4CAF50 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(76, 175, 80, 0.5);
+}
+
+.ready-button[style*="red"] {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  border-color: #e74c3c;
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+.ready-button[style*="red"]:hover {
+  background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(231, 76, 60, 0.5);
+}
+
+.back-to-menu {
+  text-decoration: none;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+  font-size: 14px;
+}
+
+.back-to-menu:hover {
+  background: rgba(0, 0, 0, 0.6);
+  border-color: rgba(255, 140, 0, 0.5);
+}
+
+.back-to-menu button {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  width: 100%;
+  padding: 0;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .actions-main-block {
+    grid-template-columns: 1fr;
+  }
+  
+  .actions-block h2 {
+    font-size: 24px;
+  }
+  
+  .players-list {
+    max-height: 300px;
+  }
 }
