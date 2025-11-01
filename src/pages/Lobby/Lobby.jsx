@@ -21,7 +21,6 @@ export const Lobby = ({ ws, playerId, players }) => {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [dropdownMenuOpen, setDropdownMenuOpen] = useState(true);
   const [descriptionTooltip, setDescriptionTooltip] = useState(null); // {text, x, y, position, visible}
-  const [showConnectionOverlay, setShowConnectionOverlay] = useState(false); // Показывать ли экран "Подключение..."
   const [currentRound, setCurrentRound] = useState(0);
   const [totalRounds, setTotalRounds] = useState(5);
   const [showRoundAnimation, setShowRoundAnimation] = useState(false);
@@ -291,12 +290,8 @@ export const Lobby = ({ ws, playerId, players }) => {
 
         if (data.type === "game_started") {
           console.log("🎮 Игра началась!");
-          // Показываем экран "Подключение..." когда игра начинается
-          setShowConnectionOverlay(true);
         } else if (data.type === "game_ready") {
-          console.log("✅ Игра готова, скрываем экран подключения");
-          // Скрываем экран "Подключение..." когда админ нажал "Начать"
-          setShowConnectionOverlay(false);
+          console.log("✅ Игра готова");
         } else if (data.type === "game_reset") {
           console.log("🔄 Игра сброшена администратором");
           setGameStartTime(null);
@@ -406,21 +401,9 @@ export const Lobby = ({ ws, playerId, players }) => {
           if (data.gameStartTime && data.gameStarted) {
             setGameStartTime(data.gameStartTime);
             setElapsedTime(data.gameElapsedTime || 0);
-            // Если игра началась, но еще не готова - показываем экран подключения
-            if (!data.gameReady) {
-              setShowConnectionOverlay(true);
-            } else {
-              setShowConnectionOverlay(false);
-            }
           } else if (!data.gameStarted) {
             setGameStartTime(null);
             setElapsedTime(0);
-            setShowConnectionOverlay(false);
-          } else {
-            // Дополнительная проверка готовности, если игра началась
-            if (data.gameReady) {
-              setShowConnectionOverlay(false);
-            }
           }
           
           // Обновляем информацию о раундах
@@ -796,15 +779,6 @@ export const Lobby = ({ ws, playerId, players }) => {
 
   const isHost = players.find(p => p.id === playerId)?.role === "host";
 
-  // Функция для нажатия кнопки "Начать" (только для админа)
-  const handleStartGame = () => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: 'game_ready'
-      }));
-      console.log("✅ Админ нажал 'Начать', отправляем на сервер");
-    }
-  };
 
   // Функция для установки количества раундов
   const handleSetTotalRounds = (rounds) => {
@@ -1265,13 +1239,6 @@ export const Lobby = ({ ws, playerId, players }) => {
         </div>
       )}
 
-      {/* Overlay с надписью "Подключение..." */}
-      {showConnectionOverlay && !isHost && (
-        <div className="connection-overlay">
-          <div className="connection-text">Подключение...</div>
-          
-        </div>
-      )}
 
       <div className="controls-panel">
         <button 
@@ -1291,15 +1258,6 @@ export const Lobby = ({ ws, playerId, players }) => {
           </button>
         )}
         
-        {/* Кнопка "Начать" для админа (только когда игра началась, но еще не готова) */}
-        {isHost && showConnectionOverlay && (
-          <button 
-            onClick={handleStartGame}
-            className="control-btn start-game-btn"
-          >
-            Начать
-          </button>
-        )}
         
         {/* Кнопка для админа */}
         {isHost && (
