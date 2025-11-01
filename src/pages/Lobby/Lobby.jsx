@@ -69,6 +69,12 @@ export const Lobby = ({ ws, playerId, players }) => {
           audio: true
         });
         
+        // Отключаем все аудио треки (микрофон)
+        stream.getAudioTracks().forEach(track => {
+          track.enabled = false;
+          console.log("🔇 Микрофон отключен:", track.label);
+        });
+        
         streamObtained = true;
         
         if (!mounted) {
@@ -77,7 +83,7 @@ export const Lobby = ({ ws, playerId, players }) => {
           return;
         }
         
-        console.log("✅ Камера и микрофон инициализированы в Lobby, треки:", {
+        console.log("✅ Камера инициализирована в Lobby (микрофон отключен), треки:", {
           video: stream.getVideoTracks().map(t => ({enabled: t.enabled, readyState: t.readyState})),
           audio: stream.getAudioTracks().map(t => ({enabled: t.enabled, readyState: t.readyState}))
         });
@@ -171,11 +177,16 @@ export const Lobby = ({ ws, playerId, players }) => {
       rtcpMuxPolicy: 'require'
     });
 
-    // 🔥 Добавляем все треки (видео и аудио)
+    // 🔥 Добавляем только видео треки (микрофон отключен)
     if (localStream) {
       localStream.getTracks().forEach(track => {
-        console.log(`📤 Добавляем локальный трек ${track.kind} для ${remoteId}`);
-        pc.addTrack(track, localStream);
+        // Добавляем только видео треки
+        if (track.kind === 'video') {
+          console.log(`📤 Добавляем локальный трек ${track.kind} для ${remoteId}`);
+          pc.addTrack(track, localStream);
+        } else {
+          console.log(`🔇 Пропускаем аудио трек (микрофон отключен)`);
+        }
       });
     }
 
