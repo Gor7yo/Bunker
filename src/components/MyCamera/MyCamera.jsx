@@ -12,7 +12,17 @@ function MyCamera({ onStream }) {
     
     async function startCamera() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        // ⚡ ОПТИМИЗИРОВАННЫЕ НАСТРОЙКИ ДЛЯ 8 ИГРОКОВ: минимальное разрешение и FPS
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            width: { ideal: 480, max: 640 }, 
+            height: { ideal: 360, max: 480 },
+            frameRate: { ideal: 20, max: 24 },
+            aspectRatio: { ideal: 4/3 },
+            facingMode: 'user'
+          }, 
+          audio: false 
+        });
         
         if (!mounted) {
           // Если компонент размонтирован, останавливаем поток

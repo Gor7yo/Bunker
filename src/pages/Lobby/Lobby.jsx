@@ -7,7 +7,6 @@ import { FaBan } from "react-icons/fa6";
 import { GiHolyGrail } from "react-icons/gi";
 import { TbMicrophone2Off } from "react-icons/tb";
 import { TbMicrophone2 } from "react-icons/tb";
-import { MediasoupClient } from "../../utils/mediasoup-client";
 
 export const Lobby = ({ ws, playerId, players }) => {
   const { mirrorCamera } = useContext(DataContext);
@@ -43,8 +42,6 @@ export const Lobby = ({ ws, playerId, players }) => {
   const videoRefs = useRef({});
   const isInitialized = useRef(false);
   const streamLockRef = useRef(false); // Защита от дублирования потоков
-  const mediasoupClientRef = useRef(null); // Референс на Mediasoup клиент
-  const useMediasoupSFU = useRef(false); // Флаг использования Mediasoup SFU вместо mesh
 
   // =========================
   // 📹 Инициализация локальной камеры (УПРОЩЕННАЯ)
@@ -64,13 +61,23 @@ export const Lobby = ({ ws, playerId, players }) => {
         
         console.log("🎥 Запуск инициализации камеры в Lobby...");
         
+        // ⚡ ОПТИМИЗИРОВАННЫЕ НАСТРОЙКИ ДЛЯ 8 ИГРОКОВ: минимальное разрешение и FPS
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
-            width: { ideal: 640 }, 
-            height: { ideal: 480 },
-            frameRate: { ideal: 30 }
+            width: { ideal: 480, max: 640 }, 
+            height: { ideal: 360, max: 480 },
+            frameRate: { ideal: 20, max: 24 }, // Снижаем до 20 fps для экономии ресурсов
+            aspectRatio: { ideal: 4/3 },
+            facingMode: 'user'
           },
-          audio: true
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: { ideal: 16000 }, // Снижаем качество аудио для экономии трафика
+            channelCount: { ideal: 1 }, // Моно вместо стерео
+            bitrate: { ideal: 24000, max: 32000 } // Ограничиваем битрейт аудио
+          }
         });
         
         streamObtained = true;
@@ -124,18 +131,6 @@ export const Lobby = ({ ws, playerId, players }) => {
     };
   }, [playerId]);
 
-  // Cleanup при размонтировании - отключаем от Mediasoup
-  useEffect(() => {
-    return () => {
-      if (mediasoupClientRef.current) {
-        mediasoupClientRef.current.disconnect();
-        mediasoupClientRef.current = null;
-        useMediasoupSFU.current = false;
-        console.log("🔌 Отключен от Mediasoup SFU при размонтировании");
-      }
-    };
-  }, []);
-
   // =========================
   // 🔄 Управление WebRTC соединениями (УПРОЩЕННОЕ)
   // =========================
@@ -169,7 +164,7 @@ export const Lobby = ({ ws, playerId, players }) => {
   // =========================
   // 🔗 Создание PeerConnection (ИСПРАВЛЕННОЕ)
   // =========================
-  const createPeerConnection = (remoteId) => {
+  const createPeerConnection = async (remoteId) => {
     if (peersRef.current[remoteId]) {
       console.log(`⚠️ Соединение с ${remoteId} уже существует`);
       return peersRef.current[remoteId];
@@ -177,27 +172,74 @@ export const Lobby = ({ ws, playerId, players }) => {
 
     console.log(`🎯 Создаем RTCPeerConnection для ${remoteId}`);
     
+    // ⚡ ОПТИМИЗАЦИЯ: настройка ICE серверов для 8 игроков
+    // ВАЖНО: Для продакшена добавьте TURN сервер для работы за NAT/файрволом
+    // Пример: { urls: 'turn:your-turn-server.com:3478', username: 'user', credential: 'pass' }
     const pc = new RTCPeerConnection({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' }
+        // TODO: Добавьте TURN сервер для продакшена (см. WEBCAM_OPTIMIZATION_GUIDE.md)
       ],
       iceTransportPolicy: 'all',
       bundlePolicy: 'max-bundle',
-      rtcpMuxPolicy: 'require'
+      rtcpMuxPolicy: 'require',
+      // Оптимизация для множественных соединений
+      iceCandidatePoolSize: 0 // Не предзагружаем кандидаты (экономия ресурсов)
     });
 
-    // 🔥 Добавляем только видео треки (микрофон отключен)
+    // 🔥 Добавляем все треки (видео и аудио) с приоритизацией
     if (localStream) {
-      localStream.getTracks().forEach(track => {
-        // Добавляем только видео треки
-        if (track.kind === 'video') {
-          console.log(`📤 Добавляем локальный трек ${track.kind} для ${remoteId}`);
-          pc.addTrack(track, localStream);
-        } else {
-          console.log(`🔇 Пропускаем аудио трек (микрофон отключен)`);
+      // Используем for...of вместо forEach для поддержки async/await
+      const tracks = localStream.getTracks();
+      for (const track of tracks) {
+        console.log(`📤 Добавляем локальный трек ${track.kind} для ${remoteId}`);
+        const sender = pc.addTrack(track, localStream);
+        
+        // ⚡ ОПТИМИЗАЦИЯ ДЛЯ 8 ИГРОКОВ: Приоритизируем аудио, снижаем битрейт видео
+        if (track.kind === 'audio') {
+          const params = sender.getParameters();
+          if (!params.encodings) params.encodings = [{}];
+          params.encodings[0].priority = 'high';
+          params.encodings[0].maxBitrate = 24000; // 24 kbps для аудио (было 32)
+          try {
+            await sender.setParameters(params);
+          } catch (e) {
+            console.warn('Не удалось установить параметры аудио:', e);
+          }
+        } else if (track.kind === 'video') {
+          // Проверяем поддержку Simulcast для адаптивного качества
+          const params = sender.getParameters();
+          if (!params.encodings || params.encodings.length === 0) {
+            params.encodings = [{}];
+          }
+          
+          // Пытаемся включить Simulcast (3 уровня качества)
+          try {
+            params.encodings = [
+              { rid: 'high', active: true, maxBitrate: 350000, scaleResolutionDownBy: 1, maxFramerate: 20 },
+              { rid: 'medium', active: true, maxBitrate: 200000, scaleResolutionDownBy: 2, maxFramerate: 15 },
+              { rid: 'low', active: true, maxBitrate: 100000, scaleResolutionDownBy: 4, maxFramerate: 10 }
+            ];
+            await sender.setParameters(params);
+            console.log(`✅ Simulcast включен для ${remoteId}`);
+          } catch (e) {
+            // Если Simulcast не поддерживается, используем один поток с низким битрейтом
+            console.log(`⚠️ Simulcast не поддерживается, используем один поток для ${remoteId}`);
+            params.encodings = [{
+              priority: 'low',
+              maxBitrate: 300000, // 300 kbps максимум (было 500)
+              maxFramerate: 20,
+              scaleResolutionDownBy: 1
+            }];
+            try {
+              await sender.setParameters(params);
+            } catch (err) {
+              console.warn('Не удалось установить параметры видео:', err);
+            }
+          }
         }
-      });
+      }
     }
 
     // 📹 Обработка входящих потоков
@@ -254,13 +296,47 @@ export const Lobby = ({ ws, playerId, players }) => {
       }
     };
 
-    // 📊 Мониторинг состояния
+    // 📊 Мониторинг состояния с авто-переподключением
     pc.onconnectionstatechange = () => {
-      console.log(`🔗 ${remoteId}: состояние ${pc.connectionState}`);
+      const state = pc.connectionState;
+      console.log(`🔗 ${remoteId}: состояние ${state}`);
+      
+      // ⚡ ОПТИМИЗАЦИЯ: Автоматическое переподключение при потере соединения
+      if (state === 'failed' || state === 'disconnected') {
+        console.warn(`⚠️ Соединение с ${remoteId} потеряно, переподключаемся...`);
+        
+        // Закрываем старое соединение
+        try {
+          pc.close();
+        } catch (e) {
+          console.warn('Ошибка при закрытии соединения:', e);
+        }
+        
+        delete peersRef.current[remoteId];
+        
+        // Переподключаемся через 3 секунды (увеличено для стабильности)
+        setTimeout(async () => {
+          if (localStream && ws && players.find(p => p.id === remoteId)) {
+            console.log(`🔄 Переподключаемся к ${remoteId}...`);
+            await createPeerConnection(remoteId);
+          }
+        }, 3000);
+      }
     };
 
     pc.oniceconnectionstatechange = () => {
-      console.log(`🧊 ${remoteId}: ICE состояние ${pc.iceConnectionState}`);
+      const state = pc.iceConnectionState;
+      console.log(`🧊 ${remoteId}: ICE состояние ${state}`);
+      
+      // ⚡ ОПТИМИЗАЦИЯ: Перезапуск ICE при неудаче
+      if (state === 'failed') {
+        console.warn(`⚠️ ICE соединение с ${remoteId} не удалось, перезапускаем ICE...`);
+        try {
+          pc.restartIce();
+        } catch (e) {
+          console.warn('Не удалось перезапустить ICE:', e);
+        }
+      }
     };
 
     // 🚀 Инициируем соединение (только если наш ID больше)
@@ -273,6 +349,43 @@ export const Lobby = ({ ws, playerId, players }) => {
             offerToReceiveAudio: true,
             offerToReceiveVideo: true
           });
+          
+          // ⚡ ОПТИМИЗАЦИЯ ДЛЯ 8 ИГРОКОВ: Устанавливаем ограничения битрейта перед setLocalDescription
+          try {
+            const senders = pc.getSenders();
+            for (const sender of senders) {
+              if (sender.track) {
+                if (sender.track.kind === 'video') {
+                  const params = sender.getParameters();
+                  // Пытаемся включить Simulcast
+                  try {
+                    params.encodings = [
+                      { rid: 'high', active: true, maxBitrate: 350000, scaleResolutionDownBy: 1, maxFramerate: 20 },
+                      { rid: 'medium', active: true, maxBitrate: 200000, scaleResolutionDownBy: 2, maxFramerate: 15 },
+                      { rid: 'low', active: true, maxBitrate: 100000, scaleResolutionDownBy: 4, maxFramerate: 10 }
+                    ];
+                    await sender.setParameters(params);
+                  } catch (e) {
+                    // Fallback: один поток с низким битрейтом
+                    if (!params.encodings || params.encodings.length === 0) {
+                      params.encodings = [{}];
+                    }
+                    params.encodings[0].maxBitrate = 300000; // 300 kbps для видео (было 500)
+                    params.encodings[0].maxFramerate = 20;
+                    await sender.setParameters(params);
+                  }
+                } else if (sender.track.kind === 'audio') {
+                  const params = sender.getParameters();
+                  if (!params.encodings) params.encodings = [{}];
+                  params.encodings[0].maxBitrate = 24000; // 24 kbps для аудио (было 32)
+                  await sender.setParameters(params);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('Не удалось установить ограничения битрейта:', e);
+          }
+          
           await pc.setLocalDescription(offer);
           
           ws.send(JSON.stringify({
@@ -421,17 +534,6 @@ export const Lobby = ({ ws, playerId, players }) => {
               allResults: data.allResults
             });
           }
-        } else if (data.type === "mediasoup_connect") {
-          // Подключение к Mediasoup SFU
-          console.log("📡 Подключение к Mediasoup SFU...");
-          connectToMediasoupSFU(data, localStream);
-        } else if (data.type === "mediasoup_new_producer") {
-          // Новый producer от другого игрока - создаем consumer
-          if (mediasoupClientRef.current && data.playerId !== playerId) {
-            mediasoupClientRef.current.consume(data.producerId, data.playerId).catch(err => {
-              console.error(`❌ Ошибка создания consumer для producer ${data.producerId}:`, err);
-            });
-          }
         } else if (data.type === "players_update") {
           // Обновляем время игры
           if (data.gameStartTime && data.gameStarted) {
@@ -513,7 +615,7 @@ export const Lobby = ({ ws, playerId, players }) => {
           let pc = peersRef.current[data.fromId];
           if (!pc) {
             console.log(`🔗 Создаем новое соединение для входящего сигнала от ${data.fromId}`);
-            pc = createPeerConnection(data.fromId);
+            pc = await createPeerConnection(data.fromId);
           }
 
           try {
