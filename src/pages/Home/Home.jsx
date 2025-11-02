@@ -13,7 +13,7 @@ export const Home = () => {
 				</div>
 				<div className="home-page__main">
 					<div className="main__block">
-						<h4>Чтобы начать играть, нажмите на кнопку ниже, и оиждайте других игроков.</h4>
+						<h4>Чтобы начать играть, нажмите на кнопку ниже, и ожидайте других игроков.</h4>
 						<div className="main__actions">
 							<Link to='/join-room'><button className="actions__join-game">Присоеденится</button></Link>
 						</div>
