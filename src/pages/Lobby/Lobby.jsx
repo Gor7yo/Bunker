@@ -1,4 +1,4 @@
-// Lobby.js - версия с Mediasoup SFU
+// Lobby.js - с Mediasoup SFU
 import React, { useState, useEffect, useRef, useContext } from "react";
 import "./Lobby.css";
 import { GameCharacteristics } from "../../components/GameCharacteristics/GameCharacteristics";
@@ -39,14 +39,14 @@ export const Lobby = ({ ws, playerId, players }) => {
   const [showVotingAnimation, setShowVotingAnimation] = useState(false); // Анимация "Голосование"
   const descriptionTimeoutRef = useRef(null);
   const roundAnimationTimeoutRef = useRef(null);
-  const peersRef = useRef({}); // Для P2P fallback
+  const peersRef = useRef({});
   const videoRefs = useRef({});
   const isInitialized = useRef(false);
-  const streamLockRef = useRef(false); // Защита от дублирования потоков
+  const streamLockRef = useRef(false);
   const mediaManagerRef = useRef(null); // Mediasoup SFU менеджер
 
   // =========================
-  // 📹 Инициализация медиа с HybridManager (Mediasoup + P2P fallback)
+  // 📹 Инициализация медиа с Mediasoup SFU
   // =========================
   useEffect(() => {
     if (streamLockRef.current || !playerId || !ws) return;
@@ -54,17 +54,16 @@ export const Lobby = ({ ws, playerId, players }) => {
     let mounted = true;
     let streamObtained = false;
 
-    async function initMedia() {
+    async function initCamera() {
       try {
-        // Небольшая задержка, чтобы дать время MyCamera освободить камеру при переходе
         await new Promise(resolve => setTimeout(resolve, 300));
-        
         if (!mounted) return;
         
-        console.log("🎥 Запуск инициализации медиа с HybridManager...");
+        console.log("🎥 Запуск инициализации медиа с Mediasoup SFU...");
         
-        // Инициализируем HybridMediaManager
+        // Инициализируем Hybrid Media Manager
         mediaManagerRef.current = new HybridMediaManager(ws, playerId);
+        mediaManagerRef.current.setVideoRefs(videoRefs);
         const useMediasoup = await mediaManagerRef.current.initialize();
         
         if (useMediasoup) {
@@ -73,20 +72,19 @@ export const Lobby = ({ ws, playerId, players }) => {
           console.log("📡 Используем P2P WebRTC fallback");
         }
         
-        // Получаем локальный поток (ТОЛЬКО ВИДЕО, аудио отключено)
+        // Получаем локальный поток (без аудио по запросу)
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
             width: { ideal: 480, max: 640 }, 
             height: { ideal: 360, max: 480 },
-            frameRate: { ideal: 24, max: 30 }, // Хорошее качество для SFU
+            frameRate: { ideal: 24, max: 30 },
             aspectRatio: { ideal: 4/3 },
             facingMode: 'user'
           },
-          audio: false // Аудио отключено
+          audio: false
         });
         
         streamObtained = true;
-        
         if (!mounted) {
           stream.getTracks().forEach(track => track.stop());
           return;
@@ -96,22 +94,19 @@ export const Lobby = ({ ws, playerId, players }) => {
         setLocalStream(stream);
         setIsCameraOn(true);
         
-        // Отправляем поток через медиа менеджер
         await mediaManagerRef.current.setLocalStream(stream);
         
-        // Сразу подключаем к своему видео элементу
         if (videoRefs.current[playerId]) {
           const videoElement = videoRefs.current[playerId];
           videoElement.srcObject = stream;
           await videoElement.play().catch(err => {
-            console.warn("⚠️ Автоплей заблокирован, но поток подключен:", err);
+            console.warn("⚠️ Автоплей заблокирован:", err);
           });
         }
-        
-        console.log("✅ Медиа инициализировано в Lobby");
+        console.log("✅ Медиа инициализировано");
         
       } catch (err) {
-        console.error("❌ Ошибка доступа к медиа в Lobby:", err);
+        console.error("❌ Ошибка доступа к медиа:", err);
         if (mounted) {
           setIsCameraOn(false);
           streamLockRef.current = false;
@@ -120,7 +115,7 @@ export const Lobby = ({ ws, playerId, players }) => {
     }
 
     if (!isInitialized.current) {
-      initMedia();
+      initCamera();
       isInitialized.current = true;
     }
 
@@ -143,14 +138,13 @@ export const Lobby = ({ ws, playerId, players }) => {
 
     console.log("🔄 Обновление медиа соединений. Игроков:", players.length);
     
-    // Создаем соединения с новыми игроками
+    // Создаем P2P соединения только если НЕ используем Mediasoup
     players.forEach(async player => {
       if (player.id !== playerId && !mediaManagerRef.current.peersRef[player.id]) {
         if (!mediaManagerRef.current.useMediasoup) {
           console.log(`🔗 Создаем P2P соединение с ${player.name} (${player.id})`);
           await mediaManagerRef.current.createP2PPeerConnection(player.id);
         }
-        // Mediasoup обрабатывается через new_producer события
       }
     });
 
@@ -158,19 +152,262 @@ export const Lobby = ({ ws, playerId, players }) => {
     Object.keys(mediaManagerRef.current.peersRef).forEach(peerId => {
       if (!players.find(p => p.id === peerId)) {
         console.log(`🗑️ Закрываем соединение с ${peerId}`);
-        const pc = mediaManagerRef.current.peersRef[peerId];
-        if (pc) pc.close();
+        const peer = mediaManagerRef.current.peersRef[peerId];
+        if (peer && !peer.destroyed) peer.destroy();
         delete mediaManagerRef.current.peersRef[peerId];
         delete videoRefs.current[peerId];
       }
     });
     
-    // Обновляем peersRef для совместимости
     peersRef.current = mediaManagerRef.current.peersRef;
   }, [players, localStream, ws, playerId]);
 
   // =========================
-  // 📡 Обработка WebRTC сигналов (через HybridMediaManager)
+  // 🔗 Создание PeerConnection (ИСПРАВЛЕННОЕ)
+  // =========================
+  const createPeerConnection = async (remoteId) => {
+    if (peersRef.current[remoteId]) {
+      console.log(`⚠️ Соединение с ${remoteId} уже существует`);
+      return peersRef.current[remoteId];
+    }
+
+    console.log(`🎯 Создаем RTCPeerConnection для ${remoteId}`);
+    
+    // ⚡ ОПТИМИЗАЦИЯ: настройка ICE серверов для 8 игроков
+    // ВАЖНО: Для продакшена добавьте TURN сервер для работы за NAT/файрволом
+    // Пример: { urls: 'turn:your-turn-server.com:3478', username: 'user', credential: 'pass' }
+    const pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+        // TODO: Добавьте TURN сервер для продакшена (см. WEBCAM_OPTIMIZATION_GUIDE.md)
+      ],
+      iceTransportPolicy: 'all',
+      bundlePolicy: 'max-bundle',
+      rtcpMuxPolicy: 'require',
+      // Оптимизация для множественных соединений
+      iceCandidatePoolSize: 0 // Не предзагружаем кандидаты (экономия ресурсов)
+    });
+
+    // 🔥 Добавляем все треки (видео и аудио) с приоритизацией
+    if (localStream) {
+      // Используем for...of вместо forEach для поддержки async/await
+      const tracks = localStream.getTracks();
+      for (const track of tracks) {
+        console.log(`📤 Добавляем локальный трек ${track.kind} для ${remoteId}`);
+        const sender = pc.addTrack(track, localStream);
+        
+        // ⚡ ОПТИМИЗАЦИЯ ДЛЯ 8 ИГРОКОВ: Приоритизируем аудио, снижаем битрейт видео
+        if (track.kind === 'audio') {
+          const params = sender.getParameters();
+          if (!params.encodings) params.encodings = [{}];
+          params.encodings[0].priority = 'high';
+          params.encodings[0].maxBitrate = 24000; // 24 kbps для аудио (было 32)
+          try {
+            await sender.setParameters(params);
+          } catch (e) {
+            console.warn('Не удалось установить параметры аудио:', e);
+          }
+        } else if (track.kind === 'video') {
+          // Проверяем поддержку Simulcast для адаптивного качества
+          const params = sender.getParameters();
+          if (!params.encodings || params.encodings.length === 0) {
+            params.encodings = [{}];
+          }
+          
+          // Пытаемся включить Simulcast (3 уровня качества)
+          try {
+            params.encodings = [
+              { rid: 'high', active: true, maxBitrate: 350000, scaleResolutionDownBy: 1, maxFramerate: 20 },
+              { rid: 'medium', active: true, maxBitrate: 200000, scaleResolutionDownBy: 2, maxFramerate: 15 },
+              { rid: 'low', active: true, maxBitrate: 100000, scaleResolutionDownBy: 4, maxFramerate: 10 }
+            ];
+            await sender.setParameters(params);
+            console.log(`✅ Simulcast включен для ${remoteId}`);
+          } catch (e) {
+            // Если Simulcast не поддерживается, используем один поток с низким битрейтом
+            console.log(`⚠️ Simulcast не поддерживается, используем один поток для ${remoteId}`);
+            params.encodings = [{
+              priority: 'low',
+              maxBitrate: 300000, // 300 kbps максимум (было 500)
+              maxFramerate: 20,
+              scaleResolutionDownBy: 1
+            }];
+            try {
+              await sender.setParameters(params);
+            } catch (err) {
+              console.warn('Не удалось установить параметры видео:', err);
+            }
+          }
+        }
+      }
+    }
+
+    // 📹 Обработка входящих потоков
+    pc.ontrack = (event) => {
+      console.log(`📹 Получен удаленный поток от ${remoteId}`, event.streams[0]);
+      
+      if (event.streams && event.streams[0]) {
+        const remoteStream = event.streams[0];
+        
+        // Создаем видео элемент если его нет
+        if (!videoRefs.current[remoteId]) {
+          console.log(`🎥 Создаем видео элемент для ${remoteId}`);
+          // Элемент будет создан в render
+        }
+        
+        // Ждем немного чтобы элемент успел создаться в DOM
+        setTimeout(() => {
+          if (videoRefs.current[remoteId]) {
+            const videoElement = videoRefs.current[remoteId];
+            
+            videoElement.srcObject = remoteStream;
+            videoElement.playsInline = true;
+            // Звук включен для удаленных игроков
+            
+            // Применяем зеркалирование к удаленному видео, если оно включено у этого игрока
+            // Находим информацию об игроке из списка players
+            const remotePlayer = players.find(p => p.id === remoteId);
+            if (remotePlayer && remotePlayer.mirrorCamera) {
+              videoElement.style.transform = 'scaleX(-1)';
+            }
+            
+            videoElement.play().then(() => {
+              console.log(`✅ Видео и аудио воспроизводятся для ${remoteId}`);
+            }).catch(err => {
+              console.warn(`⚠️ Автоплей заблокирован для ${remoteId}:`, err);
+            });
+          }
+        }, 100);
+      }
+    };
+
+    // 🧊 ICE кандидаты
+    pc.onicecandidate = (event) => {
+      if (event.candidate && ws) {
+        console.log(`🧊 Отправляем ICE кандидат для ${remoteId}`);
+        ws.send(JSON.stringify({
+          type: "signal",
+          targetId: remoteId,
+          signal: {
+            type: "ice-candidate",
+            candidate: event.candidate
+          }
+        }));
+      }
+    };
+
+    // 📊 Мониторинг состояния с авто-переподключением
+    pc.onconnectionstatechange = () => {
+      const state = pc.connectionState;
+      console.log(`🔗 ${remoteId}: состояние ${state}`);
+      
+      // ⚡ ОПТИМИЗАЦИЯ: Автоматическое переподключение при потере соединения
+      if (state === 'failed' || state === 'disconnected') {
+        console.warn(`⚠️ Соединение с ${remoteId} потеряно, переподключаемся...`);
+        
+        // Закрываем старое соединение
+        try {
+          pc.close();
+        } catch (e) {
+          console.warn('Ошибка при закрытии соединения:', e);
+        }
+        
+        delete peersRef.current[remoteId];
+        
+        // Переподключаемся через 3 секунды (увеличено для стабильности)
+        setTimeout(async () => {
+          if (localStream && ws && players.find(p => p.id === remoteId)) {
+            console.log(`🔄 Переподключаемся к ${remoteId}...`);
+            await createPeerConnection(remoteId);
+          }
+        }, 3000);
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      const state = pc.iceConnectionState;
+      console.log(`🧊 ${remoteId}: ICE состояние ${state}`);
+      
+      // ⚡ ОПТИМИЗАЦИЯ: Перезапуск ICE при неудаче
+      if (state === 'failed') {
+        console.warn(`⚠️ ICE соединение с ${remoteId} не удалось, перезапускаем ICE...`);
+        try {
+          pc.restartIce();
+        } catch (e) {
+          console.warn('Не удалось перезапустить ICE:', e);
+        }
+      }
+    };
+
+    // 🚀 Инициируем соединение (только если наш ID больше)
+    if (remoteId > playerId) {
+      console.log(`🚀 Инициируем offer для ${remoteId}`);
+      
+      setTimeout(async () => {
+        try {
+          const offer = await pc.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true
+          });
+          
+          // ⚡ ОПТИМИЗАЦИЯ ДЛЯ 8 ИГРОКОВ: Устанавливаем ограничения битрейта перед setLocalDescription
+          try {
+            const senders = pc.getSenders();
+            for (const sender of senders) {
+              if (sender.track) {
+                if (sender.track.kind === 'video') {
+                  const params = sender.getParameters();
+                  // Пытаемся включить Simulcast
+                  try {
+                    params.encodings = [
+                      { rid: 'high', active: true, maxBitrate: 350000, scaleResolutionDownBy: 1, maxFramerate: 20 },
+                      { rid: 'medium', active: true, maxBitrate: 200000, scaleResolutionDownBy: 2, maxFramerate: 15 },
+                      { rid: 'low', active: true, maxBitrate: 100000, scaleResolutionDownBy: 4, maxFramerate: 10 }
+                    ];
+                    await sender.setParameters(params);
+                  } catch (e) {
+                    // Fallback: один поток с низким битрейтом
+                    if (!params.encodings || params.encodings.length === 0) {
+                      params.encodings = [{}];
+                    }
+                    params.encodings[0].maxBitrate = 300000; // 300 kbps для видео (было 500)
+                    params.encodings[0].maxFramerate = 20;
+                    await sender.setParameters(params);
+                  }
+                } else if (sender.track.kind === 'audio') {
+                  const params = sender.getParameters();
+                  if (!params.encodings) params.encodings = [{}];
+                  params.encodings[0].maxBitrate = 24000; // 24 kbps для аудио (было 32)
+                  await sender.setParameters(params);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('Не удалось установить ограничения битрейта:', e);
+          }
+          
+          await pc.setLocalDescription(offer);
+          
+          ws.send(JSON.stringify({
+            type: "signal",
+            targetId: remoteId,
+            signal: offer
+          }));
+          
+          console.log(`📤 Offer отправлен для ${remoteId}`);
+        } catch (error) {
+          console.error(`❌ Ошибка создания offer для ${remoteId}:`, error);
+        }
+      }, 1000); // Небольшая задержка для стабильности
+    }
+
+    peersRef.current[remoteId] = pc;
+    return pc;
+  };
+
+  // =========================
+  // 📡 Обработка WebRTC сигналов (ИСПРАВЛЕННАЯ)
   // =========================
   useEffect(() => {
     if (!ws) return;
@@ -374,7 +611,6 @@ export const Lobby = ({ ws, playerId, players }) => {
             return newSet;
           });
         } else if (data.type === "new_producer") {
-          // Обработка нового producer в Mediasoup
           if (mediaManagerRef.current && mediaManagerRef.current.useMediasoup) {
             console.log(`🎥 Новый producer от ${data.playerId}: ${data.producerId} (${data.producerKind})`);
             const consumer = await mediaManagerRef.current.mediasoupClient.consumeRemoteStream(
@@ -391,7 +627,6 @@ export const Lobby = ({ ws, playerId, players }) => {
             }
           }
         } else if (data.type === "signal" && data.fromId && data.signal) {
-          // Обработка P2P сигналов через HybridManager
           if (mediaManagerRef.current) {
             await mediaManagerRef.current.handleSignal(data.fromId, data.signal);
           } else {
@@ -420,7 +655,6 @@ export const Lobby = ({ ws, playerId, players }) => {
       setIsCameraOn(newState);
       console.log(`📹 Камера ${newState ? 'включена' : 'выключена'}`);
       
-      // Если используем Mediasoup, обновляем producer
       if (mediaManagerRef.current && mediaManagerRef.current.useMediasoup) {
         await mediaManagerRef.current.mediasoupClient.toggleProducerTrack('video', newState);
       }
@@ -493,11 +727,9 @@ export const Lobby = ({ ws, playerId, players }) => {
     return () => {
       console.log("🧹 Очистка медиа соединений");
       
-      // Очищаем через HybridMediaManager
       if (mediaManagerRef.current) {
         mediaManagerRef.current.cleanup();
       } else {
-        // Fallback для старых соединений
         Object.values(peersRef.current).forEach(pc => {
           if (pc && pc.connectionState !== 'closed') {
             pc.close();
@@ -509,16 +741,17 @@ export const Lobby = ({ ws, playerId, players }) => {
         }
       }
       
-      // Очищаем таймеры
+      // Очищаем таймер тултипа при размонтировании
       if (descriptionTimeoutRef.current) {
         clearTimeout(descriptionTimeoutRef.current);
       }
       
+      // Очищаем таймер анимации раунда
       if (roundAnimationTimeoutRef.current) {
         clearTimeout(roundAnimationTimeoutRef.current);
       }
     };
-  }, []);
+  }, [localStream]);
 
   // Функция для форматирования времени
   const formatTime = (ms) => {
