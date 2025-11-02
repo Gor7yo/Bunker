@@ -28,9 +28,9 @@ export class HybridMediaManager {
       this.mediasoupClient = new MediasoupClient(this.socket, this.playerId);
       
       // Запрашиваем RTP capabilities напрямую через request метод
-      const rtpCapabilities = await this.mediasoupClient.request('getRouterRtpCapabilities');
+      const response = await this.mediasoupClient.request('getRouterRtpCapabilities');
       
-      const success = await this.mediasoupClient.initialize(rtpCapabilities.rtpCapabilities);
+      const success = await this.mediasoupClient.initialize(response.rtpCapabilities);
       
       if (success) {
         this.useMediasoup = true;
