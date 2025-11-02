@@ -1,4 +1,4 @@
-// Lobby.js - с Mediasoup SFU
+// Lobby.js - исправленная версия
 import React, { useState, useEffect, useRef, useContext } from "react";
 import "./Lobby.css";
 import { GameCharacteristics } from "../../components/GameCharacteristics/GameCharacteristics";
@@ -7,9 +7,8 @@ import { FaBan } from "react-icons/fa6";
 import { GiHolyGrail } from "react-icons/gi";
 import { TbMicrophone2Off } from "react-icons/tb";
 import { TbMicrophone2 } from "react-icons/tb";
-import { HybridMediaManager } from "../../utils/hybrid-media";
 
-export const Lobby = ({ ws, playerId, players }) => {
+export const Lobby = ({ ws, playerId, players, iceServers = [] }) => {
   const { mirrorCamera } = useContext(DataContext);
   const [localStream, setLocalStream] = useState(null);
   const [isCameraOn, setIsCameraOn] = useState(true);
@@ -42,71 +41,84 @@ export const Lobby = ({ ws, playerId, players }) => {
   const peersRef = useRef({});
   const videoRefs = useRef({});
   const isInitialized = useRef(false);
-  const streamLockRef = useRef(false);
-  const mediaManagerRef = useRef(null); // Mediasoup SFU менеджер
+  const streamLockRef = useRef(false); // Защита от дублирования потоков
+  const iceServersRef = useRef([]); // Сохраняем ICE серверы, полученные от сервера
+
+  // Сохраняем ICE серверы из props в ref
+  useEffect(() => {
+    if (iceServers && iceServers.length > 0) {
+      iceServersRef.current = iceServers;
+      console.log("📡 ICE серверы установлены:", iceServers);
+    }
+  }, [iceServers]);
 
   // =========================
-  // 📹 Инициализация медиа с Mediasoup SFU
+  // 📹 Инициализация локальной камеры (УПРОЩЕННАЯ)
   // =========================
   useEffect(() => {
-    if (streamLockRef.current || !playerId || !ws) return;
+    if (streamLockRef.current || !playerId) return;
     
     let mounted = true;
     let streamObtained = false;
 
     async function initCamera() {
       try {
+        // Небольшая задержка, чтобы дать время MyCamera освободить камеру при переходе
         await new Promise(resolve => setTimeout(resolve, 300));
+        
         if (!mounted) return;
         
-        console.log("🎥 Запуск инициализации медиа с Mediasoup SFU...");
+        console.log("🎥 Запуск инициализации камеры в Lobby...");
         
-        // Инициализируем Hybrid Media Manager
-        mediaManagerRef.current = new HybridMediaManager(ws, playerId);
-        mediaManagerRef.current.setVideoRefs(videoRefs);
-        const useMediasoup = await mediaManagerRef.current.initialize();
-        
-        if (useMediasoup) {
-          console.log("✅ Mediasoup SFU инициализирован");
-        } else {
-          console.log("📡 Используем P2P WebRTC fallback");
-        }
-        
-        // Получаем локальный поток (без аудио по запросу)
+        // ⚡ ОПТИМИЗИРОВАННЫЕ НАСТРОЙКИ ДЛЯ 8 ИГРОКОВ: минимальное разрешение и FPS
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
             width: { ideal: 480, max: 640 }, 
             height: { ideal: 360, max: 480 },
-            frameRate: { ideal: 24, max: 30 },
+            frameRate: { ideal: 20, max: 24 }, // Снижаем до 20 fps для экономии ресурсов
             aspectRatio: { ideal: 4/3 },
             facingMode: 'user'
           },
-          audio: false
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: { ideal: 16000 }, // Снижаем качество аудио для экономии трафика
+            channelCount: { ideal: 1 }, // Моно вместо стерео
+            bitrate: { ideal: 24000, max: 32000 } // Ограничиваем битрейт аудио
+          }
         });
         
         streamObtained = true;
+        
         if (!mounted) {
+          // Если компонент размонтирован, останавливаем поток
           stream.getTracks().forEach(track => track.stop());
           return;
         }
+        
+        console.log("✅ Камера и микрофон инициализированы в Lobby, треки:", {
+          video: stream.getVideoTracks().map(t => ({enabled: t.enabled, readyState: t.readyState})),
+          audio: stream.getAudioTracks().map(t => ({enabled: t.enabled, readyState: t.readyState}))
+        });
         
         streamLockRef.current = true;
         setLocalStream(stream);
         setIsCameraOn(true);
         
-        await mediaManagerRef.current.setLocalStream(stream);
-        
+        // Сразу подключаем к своему видео элементу
         if (videoRefs.current[playerId]) {
           const videoElement = videoRefs.current[playerId];
           videoElement.srcObject = stream;
+          // Не мутируем локальное видео, чтобы слышать свой звук (если нужно)
+          
           await videoElement.play().catch(err => {
-            console.warn("⚠️ Автоплей заблокирован:", err);
+            console.warn("⚠️ Автоплей заблокирован, но поток подключен:", err);
           });
         }
-        console.log("✅ Медиа инициализировано");
         
       } catch (err) {
-        console.error("❌ Ошибка доступа к медиа:", err);
+        console.error("❌ Ошибка доступа к камере в Lobby:", err);
         if (mounted) {
           setIsCameraOn(false);
           streamLockRef.current = false;
@@ -121,45 +133,41 @@ export const Lobby = ({ ws, playerId, players }) => {
 
     return () => {
       mounted = false;
+      // Не останавливаем поток при размонтировании, только при полном выходе
       if (!streamObtained) {
         streamLockRef.current = false;
       }
     };
-  }, [playerId, ws]);
+  }, [playerId]);
 
   // =========================
-  // 🔄 Управление медиа соединениями через HybridManager
+  // 🔄 Управление WebRTC соединениями (УПРОЩЕННОЕ)
   // =========================
   useEffect(() => {
-    if (!ws || !localStream || !mediaManagerRef.current) {
-      console.log("⏳ Ожидаем WebSocket, локальный поток и медиа менеджер...");
+    if (!ws || !localStream) {
+      console.log("⏳ Ожидаем WebSocket и локальный поток...");
       return;
     }
 
-    console.log("🔄 Обновление медиа соединений. Игроков:", players.length);
+    console.log("🔄 Обновление WebRTC соединений. Игроков:", players.length);
     
-    // Создаем P2P соединения только если НЕ используем Mediasoup
-    players.forEach(async player => {
-      if (player.id !== playerId && !mediaManagerRef.current.peersRef[player.id]) {
-        if (!mediaManagerRef.current.useMediasoup) {
-          console.log(`🔗 Создаем P2P соединение с ${player.name} (${player.id})`);
-          await mediaManagerRef.current.createP2PPeerConnection(player.id);
-        }
+    // Создаем соединения с новыми игроками
+    players.forEach(player => {
+      if (player.id !== playerId && !peersRef.current[player.id]) {
+        console.log(`🔗 Создаем соединение с ${player.name} (${player.id})`);
+        createPeerConnection(player.id);
       }
     });
 
     // Удаляем старые соединения
-    Object.keys(mediaManagerRef.current.peersRef).forEach(peerId => {
+    Object.keys(peersRef.current).forEach(peerId => {
       if (!players.find(p => p.id === peerId)) {
         console.log(`🗑️ Закрываем соединение с ${peerId}`);
-        const peer = mediaManagerRef.current.peersRef[peerId];
-        if (peer && !peer.destroyed) peer.destroy();
-        delete mediaManagerRef.current.peersRef[peerId];
+        peersRef.current[peerId].close();
+        delete peersRef.current[peerId];
         delete videoRefs.current[peerId];
       }
     });
-    
-    peersRef.current = mediaManagerRef.current.peersRef;
   }, [players, localStream, ws, playerId]);
 
   // =========================
@@ -173,21 +181,24 @@ export const Lobby = ({ ws, playerId, players }) => {
 
     console.log(`🎯 Создаем RTCPeerConnection для ${remoteId}`);
     
-    // ⚡ ОПТИМИЗАЦИЯ: настройка ICE серверов для 8 игроков
-    // ВАЖНО: Для продакшена добавьте TURN сервер для работы за NAT/файрволом
-    // Пример: { urls: 'turn:your-turn-server.com:3478', username: 'user', credential: 'pass' }
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-        // TODO: Добавьте TURN сервер для продакшена (см. WEBCAM_OPTIMIZATION_GUIDE.md)
-      ],
-      iceTransportPolicy: 'all',
-      bundlePolicy: 'max-bundle',
-      rtcpMuxPolicy: 'require',
-      // Оптимизация для множественных соединений
-      iceCandidatePoolSize: 0 // Не предзагружаем кандидаты (экономия ресурсов)
-    });
+        // ⚡ ОПТИМИЗАЦИЯ: настройка ICE серверов для 8 игроков
+        // Используем серверы, полученные от сервера (включая TURN)
+        // Если серверы не получены, используем дефолтные STUN
+        const iceServers = iceServersRef.current.length > 0 
+          ? iceServersRef.current 
+          : [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:stun1.l.google.com:19302' }
+            ];
+        
+        const pc = new RTCPeerConnection({
+          iceServers: iceServers,
+          iceTransportPolicy: 'all',
+          bundlePolicy: 'max-bundle',
+          rtcpMuxPolicy: 'require',
+          // Оптимизация для множественных соединений
+          iceCandidatePoolSize: 0 // Не предзагружаем кандидаты (экономия ресурсов)
+        });
 
     // 🔥 Добавляем все треки (видео и аудио) с приоритизацией
     if (localStream) {
@@ -610,27 +621,41 @@ export const Lobby = ({ ws, playerId, players }) => {
             }
             return newSet;
           });
-        } else if (data.type === "new_producer") {
-          if (mediaManagerRef.current && mediaManagerRef.current.useMediasoup) {
-            console.log(`🎥 Новый producer от ${data.playerId}: ${data.producerId} (${data.producerKind})`);
-            const consumer = await mediaManagerRef.current.mediasoupClient.consumeRemoteStream(
-              data.producerId,
-              data.playerId
-            );
-            
-            if (consumer && videoRefs.current[data.playerId]) {
-              const videoElement = videoRefs.current[data.playerId];
-              const stream = new MediaStream([consumer.track]);
-              videoElement.srcObject = stream;
-              await videoElement.play().catch(console.warn);
-              console.log(`✅ Видео от ${data.playerId} воспроизводится через Mediasoup`);
-            }
-          }
         } else if (data.type === "signal" && data.fromId && data.signal) {
-          if (mediaManagerRef.current) {
-            await mediaManagerRef.current.handleSignal(data.fromId, data.signal);
-          } else {
-            console.warn("⚠️ Медиа менеджер не инициализирован");
+          console.log(`📡 Сигнал от ${data.fromId}: ${data.signal.type}`);
+          
+          let pc = peersRef.current[data.fromId];
+          if (!pc) {
+            console.log(`🔗 Создаем новое соединение для входящего сигнала от ${data.fromId}`);
+            pc = await createPeerConnection(data.fromId);
+          }
+
+          try {
+            if (data.signal.type === "offer") {
+              console.log(`📥 Получен offer от ${data.fromId}`);
+              await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
+              
+              const answer = await pc.createAnswer();
+              await pc.setLocalDescription(answer);
+              
+              ws.send(JSON.stringify({
+                type: "signal",
+                targetId: data.fromId,
+                signal: answer
+              }));
+              
+              console.log(`📤 Answer отправлен для ${data.fromId}`);
+              
+            } else if (data.signal.type === "answer") {
+              console.log(`📥 Получен answer от ${data.fromId}`);
+              await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
+              
+            } else if (data.signal.type === "ice-candidate" && data.signal.candidate) {
+              console.log(`🧊 Получен ICE кандидат от ${data.fromId}`);
+              await pc.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
+            }
+          } catch (error) {
+            console.error(`❌ Ошибка обработки сигнала от ${data.fromId}:`, error);
           }
         }
       } catch (error) {
@@ -645,19 +670,14 @@ export const Lobby = ({ ws, playerId, players }) => {
   // =========================
   // 🎛️ Управление камерой
   // =========================
-  const toggleCamera = async () => {
+  const toggleCamera = () => {
     if (!localStream) return;
 
     const videoTrack = localStream.getVideoTracks()[0];
     if (videoTrack) {
-      const newState = !videoTrack.enabled;
-      videoTrack.enabled = newState;
-      setIsCameraOn(newState);
-      console.log(`📹 Камера ${newState ? 'включена' : 'выключена'}`);
-      
-      if (mediaManagerRef.current && mediaManagerRef.current.useMediasoup) {
-        await mediaManagerRef.current.mediasoupClient.toggleProducerTrack('video', newState);
-      }
+      videoTrack.enabled = !videoTrack.enabled;
+      setIsCameraOn(videoTrack.enabled);
+      console.log(`📹 Камера ${videoTrack.enabled ? 'включена' : 'выключена'}`);
     }
   };
 
@@ -725,20 +745,15 @@ export const Lobby = ({ ws, playerId, players }) => {
   // =========================
   useEffect(() => {
     return () => {
-      console.log("🧹 Очистка медиа соединений");
-      
-      if (mediaManagerRef.current) {
-        mediaManagerRef.current.cleanup();
-      } else {
-        Object.values(peersRef.current).forEach(pc => {
-          if (pc && pc.connectionState !== 'closed') {
-            pc.close();
-          }
-        });
-        
-        if (localStream) {
-          localStream.getTracks().forEach(track => track.stop());
+      console.log("🧹 Очистка WebRTC соединений");
+      Object.values(peersRef.current).forEach(pc => {
+        if (pc && pc.connectionState !== 'closed') {
+          pc.close();
         }
+      });
+      
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
       }
       
       // Очищаем таймер тултипа при размонтировании
@@ -751,7 +766,7 @@ export const Lobby = ({ ws, playerId, players }) => {
         clearTimeout(roundAnimationTimeoutRef.current);
       }
     };
-  }, [localStream]);
+  }, []);
 
   // Функция для форматирования времени
   const formatTime = (ms) => {

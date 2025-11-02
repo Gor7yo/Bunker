@@ -18,6 +18,7 @@ export const JoinRoom = () => {
   const [error, setError] = useState("");
   const [connected, setConnected] = useState(false);
   const [joined, setJoined] = useState(false);
+  const [iceServers, setIceServers] = useState([]); // Сохраняем ICE серверы от сервера
 
   const wsRef = useRef(null);
   const playerIdRef = useRef(null);
@@ -43,6 +44,14 @@ export const JoinRoom = () => {
       console.log("📨 Сообщение:", data);
 
       switch (data.type) {
+        case "welcome":
+          // Сохраняем ICE серверы, полученные от сервера
+          if (data.iceServers && Array.isArray(data.iceServers)) {
+            setIceServers(data.iceServers);
+            console.log("✅ Получены ICE серверы от сервера:", data.iceServers);
+          }
+          break;
+
         case "joined_as_host":
           setRole("host");
           playerIdRef.current = data.id;
@@ -292,7 +301,7 @@ export const JoinRoom = () => {
           </div>
         </div>
       </div>
-    </div> : <Lobby ws={ws} players={players} playerId={playerIdRef.current} />}
+    </div> : <Lobby ws={ws} players={players} playerId={playerIdRef.current} iceServers={iceServers} />}
     </>
   );
 };
