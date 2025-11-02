@@ -46,9 +46,12 @@ export const Lobby = ({ ws, playerId, players, iceServers = [] }) => {
 
   // Сохраняем ICE серверы из props в ref
   useEffect(() => {
+    console.log("📡 Получены iceServers в Lobby:", iceServers);
     if (iceServers && iceServers.length > 0) {
       iceServersRef.current = iceServers;
-      console.log("📡 ICE серверы установлены:", iceServers);
+      console.log("✅ ICE серверы установлены в ref:", iceServers);
+    } else {
+      console.warn("⚠️ iceServers пуст или не передан в Lobby");
     }
   }, [iceServers]);
 
@@ -190,6 +193,8 @@ export const Lobby = ({ ws, playerId, players, iceServers = [] }) => {
               { urls: 'stun:stun.l.google.com:19302' },
               { urls: 'stun:stun1.l.google.com:19302' }
             ];
+        
+        console.log(`🔧 Используемые ICE серверы для ${remoteId}:`, iceServers);
         
         const pc = new RTCPeerConnection({
           iceServers: iceServers,

@@ -46,9 +46,12 @@ export const JoinRoom = () => {
       switch (data.type) {
         case "welcome":
           // Сохраняем ICE серверы, полученные от сервера
+          console.log("📥 Получено welcome сообщение:", data);
           if (data.iceServers && Array.isArray(data.iceServers)) {
             setIceServers(data.iceServers);
             console.log("✅ Получены ICE серверы от сервера:", data.iceServers);
+          } else {
+            console.warn("⚠️ welcome сообщение без iceServers или iceServers не массив:", data);
           }
           break;
 
