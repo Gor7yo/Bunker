@@ -1,481 +1,501 @@
-// mediasoup-client.js
-// Клиентская утилита для работы с Mediasoup
-
+// mediasoup-client.js - Клиентская библиотека для работы с Mediasoup
 import * as mediasoupClient from 'mediasoup-client';
 
 /**
- * Mediasoup WebRTC клиент для подключения к медиа-серверу
+ * Класс для управления медиа соединениями через Mediasoup
  */
-export class MediasoupWebRtcPeer {
-  constructor(ws, playerId) {
-    this.ws = ws;
+export class MediasoupClient {
+  constructor(socket, playerId) {
+    this.socket = socket;
     this.playerId = playerId;
     this.device = null;
     this.sendTransport = null;
     this.recvTransport = null;
     this.producers = new Map(); // kind -> producer
-    this.consumers = new Map(); // remotePlayerId -> {audio: consumer, video: consumer}
+    this.consumers = new Map(); // producerId -> consumer
     this.localStream = null;
-    this.remoteStreams = new Map(); // remotePlayerId -> stream
-    this.onRemoteStream = null; // Callback: (remotePlayerId, stream) => void
-    this.onConnectionStateChange = null; // Callback: (state) => void
-    this.rtpCapabilities = null;
-    this.isInitialized = false;
   }
 
   /**
-   * Инициализация устройства Mediasoup
+   * Инициализация медиа устройства
    */
-  async initialize() {
+  async initialize(routerRtpCapabilities) {
     try {
-      console.log('🎬 Инициализация Mediasoup устройства...');
-
-      // Запрашиваем RTP capabilities у сервера
-      return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Таймаут получения RTP capabilities'));
-        }, 10000);
-
-        const originalOnMessage = this.ws.onmessage;
-        this.ws.onmessage = async (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            
-            if (data.type === 'mediasoup_rtp_capabilities') {
-              clearTimeout(timeout);
-              this.rtpCapabilities = data.rtpCapabilities;
-              
-              // Создаем устройство Mediasoup
-              this.device = new mediasoupClient.Device();
-              
-              // Загружаем RTP capabilities в устройство
-              await this.device.load({ routerRtpCapabilities: this.rtpCapabilities });
-              
-              console.log('✅ Mediasoup устройство инициализировано');
-              this.ws.onmessage = originalOnMessage;
-              resolve();
-            } else if (data.type === 'error') {
-              clearTimeout(timeout);
-              this.ws.onmessage = originalOnMessage;
-              reject(new Error(data.message || 'Ошибка получения RTP capabilities'));
-            } else if (originalOnMessage) {
-              originalOnMessage(event);
-            }
-          } catch (error) {
-            if (originalOnMessage) originalOnMessage(event);
-          }
-        };
-
-        // Запрашиваем RTP capabilities
-        this.ws.send(JSON.stringify({
-          type: 'mediasoup_get_rtp_capabilities'
-        }));
-      });
+      console.log('🔧 Инициализируем Mediasoup устройство...');
+      
+      // Создаем устройство
+      this.device = new mediasoupClient.Device();
+      
+      // Загружаем возможности роутера
+      await this.device.load({ routerRtpCapabilities });
+      
+      console.log('✅ Mediasoup устройство инициализировано');
+      
+      return true;
     } catch (error) {
-      console.error('❌ Ошибка инициализации Mediasoup устройства:', error);
+      console.error('❌ Ошибка инициализации устройства:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Создание транспорта для отправки медиа
+   */
+  async createSendTransport() {
+    try {
+      console.log('🚀 Создаю send transport...');
+      
+      // Запрашиваем создание транспорта на сервере
+      const response = await this.request('createSendTransport');
+      
+      if (!response || !response.transportParams) {
+        throw new Error('Не получены параметры транспорта');
+      }
+      
+      // Создаем транспорт на клиенте
+      this.sendTransport = this.device.createSendTransport(response.transportParams);
+      
+      // Обработчики событий транспорта
+      this.sendTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+        try {
+          console.log('🔗 Подключаюсь к send transport...');
+          await this.request('connectSendTransport', { dtlsParameters });
+          callback();
+        } catch (error) {
+          console.error('❌ Ошибка подключения send transport:', error);
+          errback(error);
+        }
+      });
+      
+      this.sendTransport.on('produce', async ({ kind, rtpParameters }, callback, errback) => {
+        try {
+          console.log(`📤 Создаю producer ${kind}...`);
+          const response = await this.request('produce', { kind, rtpParameters });
+          callback({ id: response.producerId });
+        } catch (error) {
+          console.error(`❌ Ошибка создания producer ${kind}:`, error);
+          errback(error);
+        }
+      });
+      
+      this.sendTransport.on('connectionstatechange', (state) => {
+        console.log(`🔗 Send transport состояние: ${state}`);
+        if (state === 'failed' || state === 'disconnected') {
+          console.warn('⚠️ Send transport потерял соединение');
+        }
+      });
+      
+      console.log('✅ Send transport создан');
+      return this.sendTransport;
+    } catch (error) {
+      console.error('❌ Ошибка создания send transport:', error);
       throw error;
     }
   }
 
   /**
-   * Создание транспорта для отправки/получения медиа
+   * Создание транспорта для получения медиа
    */
-  async createTransport(direction = 'both') {
-    if (!this.device) {
-      throw new Error('Устройство не инициализировано');
-    }
-
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Таймаут создания транспорта'));
-      }, 10000);
-
-      const originalOnMessage = this.ws.onmessage;
-      this.ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          
-          if (data.type === 'mediasoup_transport_created') {
-            clearTimeout(timeout);
-            const transportData = data.transport;
-            
-            // Создаем транспорт на клиенте
-            const transport = this.device.createSendTransport({
-              id: transportData.id,
-              iceParameters: transportData.iceParameters,
-              iceCandidates: transportData.iceCandidates,
-              dtlsParameters: transportData.dtlsParameters,
-              sctpParameters: undefined
-            });
-
-            // Обработчики транспорта
-            transport.on('connect', async ({ dtlsParameters }, callback, errback) => {
-              try {
-                console.log('🔗 Подключение транспорта...');
-                this.ws.send(JSON.stringify({
-                  type: 'mediasoup_connect_transport',
-                  transportId: transport.id,
-                  dtlsParameters,
-                  direction: 'send'
-                }));
-
-                // Ждем подтверждения
-                const originalOnMsg = this.ws.onmessage;
-                this.ws.onmessage = (e) => {
-                  const msg = JSON.parse(e.data);
-                  if (msg.type === 'mediasoup_transport_connected' && msg.transportId === transport.id) {
-                    console.log('✅ Транспорт подключен');
-                    callback();
-                    this.ws.onmessage = originalOnMsg;
-                  }
-                };
-              } catch (error) {
-                console.error('❌ Ошибка подключения транспорта:', error);
-                errback(error);
-              }
-            });
-
-            transport.on('produce', async (parameters, callback, errback) => {
-              try {
-                console.log('📤 Создание producer...');
-                this.ws.send(JSON.stringify({
-                  type: 'mediasoup_create_producer',
-                  transportId: transport.id,
-                  kind: parameters.kind,
-                  rtpParameters: parameters.rtpParameters
-                }));
-
-                // Ждем подтверждения
-                const originalOnMsg = this.ws.onmessage;
-                this.ws.onmessage = (e) => {
-                  const msg = JSON.parse(e.data);
-                  if (msg.type === 'mediasoup_producer_created' && msg.producer) {
-                    console.log(`✅ Producer создан: ${msg.producer.id}`);
-                    callback({ id: msg.producer.id });
-                    this.ws.onmessage = originalOnMsg;
-                  }
-                };
-              } catch (error) {
-                console.error('❌ Ошибка создания producer:', error);
-                errback(error);
-              }
-            });
-
-            if (direction === 'send' || direction === 'both') {
-              this.sendTransport = transport;
-            }
-
-            this.ws.onmessage = originalOnMessage;
-            resolve(transport);
-          } else if (data.type === 'error') {
-            clearTimeout(timeout);
-            this.ws.onmessage = originalOnMessage;
-            reject(new Error(data.message || 'Ошибка создания транспорта'));
-          } else if (originalOnMessage) {
-            originalOnMessage(event);
-          }
-        } catch (error) {
-          if (originalOnMessage) originalOnMessage(event);
-        }
-      };
-
-      // Запрашиваем создание транспорта
-      this.ws.send(JSON.stringify({
-        type: 'mediasoup_create_transport',
-        direction
-      }));
-    });
-  }
-
-  /**
-   * Начало работы с Mediasoup
-   */
-  async start(localStream, onRemoteStream) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      throw new Error('WebSocket не подключен');
-    }
-
-    this.localStream = localStream;
-    this.onRemoteStream = onRemoteStream;
-
-    console.log('🎬 Начало работы с Mediasoup...');
-
-    // Инициализируем устройство
-    if (!this.isInitialized) {
-      await this.initialize();
-      this.isInitialized = true;
-    }
-
-    // Создаем send transport
-    await this.createTransport('send');
-
-    // Добавляем локальные треки как producers
-    if (localStream) {
-      for (const track of localStream.getTracks()) {
-        await this.produceTrack(track, localStream);
+  async createRecvTransport() {
+    try {
+      console.log('🚀 Создаю recv transport...');
+      
+      // Запрашиваем создание транспорта на сервере
+      const response = await this.request('createRecvTransport');
+      
+      if (!response || !response.transportParams) {
+        throw new Error('Не получены параметры транспорта');
       }
+      
+      // Создаем транспорт на клиенте
+      this.recvTransport = this.device.createRecvTransport(response.transportParams);
+      
+      // Обработчики событий транспорта
+      this.recvTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+        try {
+          console.log('🔗 Подключаюсь к recv transport...');
+          await this.request('connectRecvTransport', { dtlsParameters });
+          callback();
+        } catch (error) {
+          console.error('❌ Ошибка подключения recv transport:', error);
+          errback(error);
+        }
+      });
+      
+      this.recvTransport.on('connectionstatechange', (state) => {
+        console.log(`🔗 Recv transport состояние: ${state}`);
+        if (state === 'failed' || state === 'disconnected') {
+          console.warn('⚠️ Recv transport потерял соединение');
+        }
+      });
+      
+      console.log('✅ Recv transport создан');
+      return this.recvTransport;
+    } catch (error) {
+      console.error('❌ Ошибка создания recv transport:', error);
+      throw error;
     }
-
-    // Запрашиваем список активных producers от других игроков
-    await this.requestActiveProducers();
-
-    console.log('✅ Mediasoup соединение установлено');
   }
 
   /**
-   * Создание producer для трека
+   * Отправка локального медиа потока (видео и аудио)
    */
-  async produceTrack(track, stream) {
+  async sendLocalStream(stream) {
     if (!this.sendTransport) {
       throw new Error('Send transport не создан');
     }
-
+    
+    this.localStream = stream;
+    
     try {
-      console.log(`📤 Создание producer для ${track.kind}...`);
+      // Отправляем видео трек
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        await this.sendTrack(videoTrack, stream, 'video');
+      }
       
+      // Отправляем аудио трек
+      const audioTrack = stream.getAudioTracks()[0];
+      if (audioTrack) {
+        await this.sendTrack(audioTrack, stream, 'audio');
+      }
+      
+      console.log('✅ Локальный поток отправлен');
+    } catch (error) {
+      console.error('❌ Ошибка отправки локального потока:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Отправка отдельного трека
+   */
+  async sendTrack(track, stream, kind) {
+    if (!this.sendTransport || !track) {
+      return null;
+    }
+    
+    try {
+      // Создаем producer
       const producer = await this.sendTransport.produce({
         track,
-        codecOptions: {
-          videoGoogleStartBitrate: 1000
-        }
+        codecOptions: kind === 'video' ? {
+          videoGoogleStartBitrate: 1000 // Начальный битрейт
+        } : undefined
       });
-
-      this.producers.set(track.kind, producer);
-      console.log(`✅ Producer создан для ${track.kind}:`, producer.id);
-
+      
+      // Устанавливаем параметры качества для видео (Simulcast)
+      if (kind === 'video' && producer.rtpParameters.encodings) {
+        const encodings = producer.rtpParameters.encodings;
+        
+        // Пытаемся включить Simulcast (3 уровня качества)
+        try {
+          encodings[0].maxBitrate = 800000; // High
+          encodings[0].maxFramerate = 24;
+          
+          // Добавляем дополнительные слои для Simulcast
+          if (encodings.length === 1) {
+            encodings.push({
+              scaleResolutionDownBy: 2,
+              maxBitrate: 400000,
+              maxFramerate: 15
+            });
+            encodings.push({
+              scaleResolutionDownBy: 4,
+              maxBitrate: 150000,
+              maxFramerate: 10
+            });
+          }
+          
+          producer.rtpParameters.encodings = encodings;
+          console.log('✅ Simulcast включен для видео');
+        } catch (error) {
+          console.warn('⚠️ Simulcast не поддерживается:', error);
+        }
+      }
+      
+      this.producers.set(kind, producer);
+      
+      console.log(`✅ Producer ${kind} создан:`, {
+        id: producer.id,
+        kind: producer.kind,
+        rtpParameters: producer.rtpParameters
+      });
+      
+      // Отслеживаем изменения состояния
+      producer.on('trackended', () => {
+        console.log(`📹 Producer ${kind} завершился`);
+        this.producers.delete(kind);
+      });
+      
       return producer;
     } catch (error) {
-      console.error(`❌ Ошибка создания producer для ${track.kind}:`, error);
+      console.error(`❌ Ошибка создания producer ${kind}:`, error);
       throw error;
     }
   }
 
   /**
-   * Запрос списка активных producers
+   * Получение медиа от другого игрока
    */
-  async requestActiveProducers() {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Таймаут получения списка producers'));
-      }, 5000);
-
-      const originalOnMessage = this.ws.onmessage;
-      this.ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          
-          if (data.type === 'mediasoup_active_producers') {
-            clearTimeout(timeout);
-            
-            // Создаем consumers для каждого producer
-            if (data.producers && data.producers.length > 0) {
-              data.producers.forEach(async (producerInfo) => {
-                if (producerInfo.playerId !== this.playerId) {
-                  await this.createConsumer(producerInfo.playerId, producerInfo.kind, producerInfo.producerId);
-                }
-              });
-            }
-            
-            this.ws.onmessage = originalOnMessage;
-            resolve(data.producers || []);
-          } else if (data.type === 'mediasoup_new_producer') {
-            // Новый producer появился - создаем consumer
-            if (data.playerId !== this.playerId) {
-              this.createConsumer(data.playerId, data.kind, data.producerId);
-            }
-            if (originalOnMessage) originalOnMessage(event);
-          } else if (originalOnMessage) {
-            originalOnMessage(event);
-          }
-        } catch (error) {
-          if (originalOnMessage) originalOnMessage(event);
-        }
-      };
-
-      // Запрашиваем активные producers
-      this.ws.send(JSON.stringify({
-        type: 'mediasoup_get_active_producers'
-      }));
-    });
+  async consumeRemoteStream(producerId, remotePlayerId) {
+    if (!this.recvTransport) {
+      console.warn('⚠️ Recv transport не создан');
+      return null;
+    }
+    
+    // Проверяем, не получаем ли мы уже этот producer
+    if (this.consumers.has(producerId)) {
+      console.log(`⚠️ Уже получаем producer ${producerId}`);
+      return this.consumers.get(producerId);
+    }
+    
+    try {
+      // Запрашиваем создание consumer на сервере
+      const response = await this.request('consume', {
+        producerId,
+        rtpCapabilities: this.device.rtpCapabilities
+      });
+      
+      if (!response || !response.consumerParams) {
+        throw new Error('Не получены параметры consumer');
+      }
+      
+      // Создаем consumer на клиенте
+      const consumer = await this.recvTransport.consume(response.consumerParams);
+      
+      this.consumers.set(producerId, consumer);
+      
+      console.log(`✅ Consumer создан для producer ${producerId}:`, {
+        id: consumer.id,
+        producerId: consumer.producerId,
+        kind: consumer.kind
+      });
+      
+      // Отслеживаем изменения состояния
+      consumer.on('trackended', () => {
+        console.log(`📹 Consumer ${consumer.id} завершился`);
+        this.consumers.delete(producerId);
+      });
+      
+      // Отправляем подтверждение на сервер
+      await this.request('consumerResumed', { consumerId: consumer.id });
+      
+      return consumer;
+    } catch (error) {
+      console.error(`❌ Ошибка создания consumer для producer ${producerId}:`, error);
+      throw error;
+    }
   }
 
   /**
-   * Создание consumer для получения потока от другого игрока
+   * Остановка отправки трека
    */
-  async createConsumer(remotePlayerId, kind, producerId) {
-    if (!this.device) {
-      console.warn('⚠️ Устройство не готово для consumer');
+  async stopProducing(kind) {
+    const producer = this.producers.get(kind);
+    if (producer) {
+      producer.close();
+      this.producers.delete(kind);
+      console.log(`✅ Producer ${kind} остановлен`);
+    }
+  }
+
+  /**
+   * Остановка получения трека
+   */
+  async stopConsuming(producerId) {
+    const consumer = this.consumers.get(producerId);
+    if (consumer) {
+      consumer.close();
+      this.consumers.delete(producerId);
+      console.log(`✅ Consumer для producer ${producerId} остановлен`);
+    }
+  }
+
+  /**
+   * Включение/выключение трека
+   */
+  async toggleProducerTrack(kind, enabled) {
+    const producer = this.producers.get(kind);
+    if (producer) {
+      await producer.pause();
+      if (enabled) {
+        await producer.resume();
+      }
+      console.log(`✅ Producer ${kind} ${enabled ? 'включен' : 'выключен'}`);
+    }
+  }
+
+  /**
+   * Изменение разрешения и битрейта
+   */
+  async setProducerParameters(kind, params) {
+    const producer = this.producers.get(kind);
+    if (!producer) {
       return;
     }
-
-    // Проверяем, не создали ли уже consumer для этого игрока
-    if (this.consumers.has(remotePlayerId)) {
-      const existing = this.consumers.get(remotePlayerId);
-      if (existing[kind]) {
-        console.log(`ℹ️ Consumer для ${remotePlayerId} (${kind}) уже существует`);
-        return;
-      }
-    }
-
+    
     try {
-      console.log(`📥 Создание consumer для ${remotePlayerId} (${kind})...`);
-
-      // Создаем recv transport если его нет
-      if (!this.recvTransport) {
-        await this.createRecvTransport();
+      // Получаем текущие параметры
+      const parameters = producer.rtpParameters;
+      
+      // Обновляем параметры
+      if (kind === 'video' && parameters.encodings && parameters.encodings.length > 0) {
+        const encoding = parameters.encodings[0];
+        
+        if (params.maxBitrate !== undefined) {
+          encoding.maxBitrate = params.maxBitrate;
+        }
+        if (params.maxFramerate !== undefined) {
+          encoding.maxFramerate = params.maxFramerate;
+        }
+        if (params.scaleResolutionDownBy !== undefined) {
+          encoding.scaleResolutionDownBy = params.scaleResolutionDownBy;
+        }
+        
+        // Применяем изменения
+        await producer.setPreferredLayers({ 
+          spatialLayer: params.spatialLayer || 0,
+          temporalLayer: params.temporalLayer || 0
+        });
+        
+        console.log(`✅ Параметры producer ${kind} обновлены`);
       }
-
-      // Запрашиваем создание consumer на сервере
-      return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Таймаут создания consumer'));
-        }, 10000);
-
-        const originalOnMessage = this.ws.onmessage;
-        this.ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            
-            if (data.type === 'mediasoup_consumer_created' && 
-                data.remotePlayerId === remotePlayerId &&
-                data.consumer.kind === kind) {
-              clearTimeout(timeout);
-              
-              // Создаем consumer на клиенте
-              const consumer = this.recvTransport.consume({
-                id: data.consumer.id,
-                producerId: data.consumer.producerId,
-                kind: data.consumer.kind,
-                rtpParameters: data.consumer.rtpParameters
-              });
-
-              // Сохраняем consumer
-              if (!this.consumers.has(remotePlayerId)) {
-                this.consumers.set(remotePlayerId, {});
-              }
-              this.consumers.get(remotePlayerId)[kind] = consumer;
-
-              // Создаем поток и добавляем трек
-              if (!this.remoteStreams.has(remotePlayerId)) {
-                const remoteStream = new MediaStream();
-                this.remoteStreams.set(remotePlayerId, remoteStream);
-              }
-              
-              const remoteStream = this.remoteStreams.get(remotePlayerId);
-              remoteStream.addTrack(consumer.track);
-
-              // Вызываем callback
-              if (this.onRemoteStream) {
-                this.onRemoteStream(remotePlayerId, remoteStream);
-              }
-
-              console.log(`✅ Consumer создан для ${remotePlayerId} (${kind}):`, consumer.id);
-              
-              this.ws.onmessage = originalOnMessage;
-              resolve(consumer);
-            } else if (data.type === 'error') {
-              clearTimeout(timeout);
-              this.ws.onmessage = originalOnMessage;
-              reject(new Error(data.message || 'Ошибка создания consumer'));
-            } else if (originalOnMessage) {
-              originalOnMessage(event);
-            }
-          } catch (error) {
-            if (originalOnMessage) originalOnMessage(event);
-          }
-        };
-
-        // Запрашиваем создание consumer
-        this.ws.send(JSON.stringify({
-          type: 'mediasoup_create_consumer',
-          remotePlayerId,
-          kind,
-          producerId
-        }));
-      });
     } catch (error) {
-      console.error(`❌ Ошибка создания consumer для ${remotePlayerId}:`, error);
-      throw error;
+      console.error(`❌ Ошибка обновления параметров producer ${kind}:`, error);
     }
   }
 
   /**
-   * Создание recv транспорта
+   * Получить статистику производителей
    */
-  async createRecvTransport() {
-    if (this.recvTransport) {
-      return this.recvTransport;
-    }
-
-    const transport = await this.createTransport('recv');
-    this.recvTransport = transport;
-
-    // Обработчик подключения для recv транспорта
-    transport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+  async getProducerStats() {
+    const stats = {};
+    
+    for (const [kind, producer] of this.producers) {
       try {
-        this.ws.send(JSON.stringify({
-          type: 'mediasoup_connect_transport',
-          transportId: transport.id,
-          dtlsParameters,
-          direction: 'recv'
-        }));
-
-        const originalOnMsg = this.ws.onmessage;
-        this.ws.onmessage = (e) => {
-          const msg = JSON.parse(e.data);
-          if (msg.type === 'mediasoup_transport_connected' && msg.transportId === transport.id) {
-            callback();
-            this.ws.onmessage = originalOnMsg;
-          }
-        };
+        const producerStats = await producer.getStats();
+        stats[kind] = producerStats;
       } catch (error) {
-        errback(error);
+        console.error(`❌ Ошибка получения статистики producer ${kind}:`, error);
       }
-    });
-
-    return transport;
+    }
+    
+    return stats;
   }
 
   /**
-   * Остановка соединения
+   * Получить статистику потребителей
    */
-  async stop() {
-    console.log(`🛑 Останавливаем Mediasoup соединение для ${this.playerId}`);
+  async getConsumerStats() {
+    const stats = {};
+    
+    for (const [producerId, consumer] of this.consumers) {
+      try {
+        const consumerStats = await consumer.getStats();
+        stats[producerId] = consumerStats;
+      } catch (error) {
+        console.error(`❌ Ошибка получения статистики consumer ${producerId}:`, error);
+      }
+    }
+    
+    return stats;
+  }
 
-    // Закрываем producers
-    for (const producer of this.producers.values()) {
-      if (producer && !producer.closed) {
+  /**
+   * Полная очистка ресурсов
+   */
+  async cleanup() {
+    console.log('🧹 Очистка Mediasoup ресурсов...');
+    
+    // Закрываем всех producers
+    for (const [kind, producer] of this.producers) {
+      try {
         producer.close();
+      } catch (error) {
+        console.error(`Ошибка закрытия producer ${kind}:`, error);
       }
     }
     this.producers.clear();
-
-    // Закрываем consumers
-    for (const playerConsumers of this.consumers.values()) {
-      for (const consumer of Object.values(playerConsumers)) {
-        if (consumer && !consumer.closed) {
-          consumer.close();
-        }
+    
+    // Закрываем всех consumers
+    for (const [producerId, consumer] of this.consumers) {
+      try {
+        consumer.close();
+      } catch (error) {
+        console.error(`Ошибка закрытия consumer ${producerId}:`, error);
       }
     }
     this.consumers.clear();
-
-    // Закрываем transports
-    if (this.sendTransport && !this.sendTransport.closed) {
-      this.sendTransport.close();
+    
+    // Закрываем транспорты
+    if (this.sendTransport) {
+      try {
+        this.sendTransport.close();
+      } catch (error) {
+        console.error('Ошибка закрытия send transport:', error);
+      }
+      this.sendTransport = null;
     }
-    if (this.recvTransport && !this.recvTransport.closed) {
-      this.recvTransport.close();
+    
+    if (this.recvTransport) {
+      try {
+        this.recvTransport.close();
+      } catch (error) {
+        console.error('Ошибка закрытия recv transport:', error);
+      }
+      this.recvTransport = null;
     }
-
+    
     this.localStream = null;
-    this.remoteStreams.clear();
+    this.device = null;
+    
+    console.log('✅ Ресурсы Mediasoup очищены');
   }
 
   /**
-   * Получение удаленного потока для игрока
+   * Вспомогательный метод для отправки запросов
    */
-  getRemoteStream(remotePlayerId) {
-    return this.remoteStreams.get(remotePlayerId);
+  request(type, data = {}) {
+    return new Promise((resolve, reject) => {
+      const requestId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+      
+      // Отправляем запрос
+      this.socket.send(JSON.stringify({
+        type: 'mediasoup',
+        requestType: type,
+        requestId,
+        data
+      }));
+      
+      // Временный обработчик ответа
+      const responseHandler = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          
+          if (message.type === 'mediasoup' && message.requestId === requestId) {
+            this.socket.removeEventListener('message', responseHandler);
+            
+            if (message.error) {
+              reject(new Error(message.error));
+            } else {
+              resolve(message.data);
+            }
+          }
+        } catch (error) {
+          // Игнорируем некорректные сообщения
+        }
+      };
+      
+      this.socket.addEventListener('message', responseHandler);
+      
+      // Таймаут
+      setTimeout(() => {
+        this.socket.removeEventListener('message', responseHandler);
+        reject(new Error('Timeout медиа запроса'));
+      }, 10000);
+    });
   }
 }
+
+export default MediasoupClient;
