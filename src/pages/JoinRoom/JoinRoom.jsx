@@ -18,7 +18,6 @@ export const JoinRoom = () => {
   const [error, setError] = useState("");
   const [connected, setConnected] = useState(false);
   const [joined, setJoined] = useState(false);
-  const [iceServers, setIceServers] = useState([]); // Сохраняем ICE серверы от сервера
 
   const wsRef = useRef(null);
   const playerIdRef = useRef(null);
@@ -44,23 +43,6 @@ export const JoinRoom = () => {
       console.log("📨 Сообщение:", data);
 
       switch (data.type) {
-        case "welcome":
-          // Сохраняем ICE серверы, полученные от сервера
-          console.log("📥 Получено welcome сообщение:", data);
-          console.log("📥 iceServers в welcome:", data.iceServers);
-          if (data.iceServers && Array.isArray(data.iceServers)) {
-            setIceServers(data.iceServers);
-            console.log("✅ Получены ICE серверы от сервера, установлены в state:", data.iceServers);
-            console.log("✅ Количество ICE серверов:", data.iceServers.length);
-            // Выводим подробности каждого сервера
-            data.iceServers.forEach((server, idx) => {
-              console.log(`  Сервер ${idx + 1}:`, server);
-            });
-          } else {
-            console.warn("⚠️ welcome сообщение без iceServers или iceServers не массив:", data);
-          }
-          break;
-
         case "joined_as_host":
           setRole("host");
           playerIdRef.current = data.id;
@@ -310,7 +292,7 @@ export const JoinRoom = () => {
           </div>
         </div>
       </div>
-    </div> : <Lobby ws={ws} players={players} playerId={playerIdRef.current} iceServers={iceServers} />}
+    </div> : <Lobby ws={ws} players={players} playerId={playerIdRef.current} />}
     </>
   );
 };
