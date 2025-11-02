@@ -73,24 +73,43 @@ export const Lobby = ({ ws, playerId, players, iceServers = [] }) => {
         
         console.log("🎥 Запуск инициализации камеры в Lobby...");
         
-        // ⚡ МАКСИМАЛЬНАЯ ОПТИМИЗАЦИЯ ДЛЯ 8 ИГРОКОВ: минимальные настройки
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { 
-            width: { ideal: 320, max: 480 }, // Еще ниже разрешение для 8 игроков
-            height: { ideal: 240, max: 360 },
-            frameRate: { ideal: 15, max: 20 }, // Еще ниже FPS
-            aspectRatio: { ideal: 4/3 },
-            facingMode: 'user'
-          },
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-            sampleRate: { ideal: 8000, max: 16000 }, // Минимальный sample rate
-            channelCount: { ideal: 1 }, // Моно
-            bitrate: { ideal: 16000, max: 24000 } // Еще ниже битрейт аудио
-          }
-        });
+        // ⚡ МАКСИМАЛЬНАЯ ОПТИМИЗАЦИЯ ДЛЯ 8 ИГРОКОВ: минимальные настройки с fallback
+        let stream;
+        try {
+          // Пробуем с минимальными настройками
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { 
+              width: { ideal: 320, max: 480 }, // Низкое разрешение для 8 игроков
+              height: { ideal: 240, max: 360 },
+              frameRate: { ideal: 15, max: 20 }, // Низкий FPS
+              aspectRatio: { ideal: 4/3 },
+              facingMode: 'user'
+            },
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              sampleRate: { ideal: 16000 }, // Минимальный sample rate
+              channelCount: { ideal: 1 } // Моно
+            }
+          });
+        } catch (err) {
+          // Если не получилось с минимальными настройками, пробуем более гибкие
+          console.warn("⚠️ Не удалось с минимальными настройками, пробуем более гибкие:", err);
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { 
+              width: { ideal: 480, max: 640 }, // Более гибкие ограничения
+              height: { ideal: 360, max: 480 },
+              frameRate: { ideal: 20, max: 24 },
+              facingMode: 'user'
+            },
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            }
+          });
+        }
         
         streamObtained = true;
         
