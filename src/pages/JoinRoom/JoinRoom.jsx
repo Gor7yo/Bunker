@@ -47,9 +47,15 @@ export const JoinRoom = () => {
         case "welcome":
           // Сохраняем ICE серверы, полученные от сервера
           console.log("📥 Получено welcome сообщение:", data);
+          console.log("📥 iceServers в welcome:", data.iceServers);
           if (data.iceServers && Array.isArray(data.iceServers)) {
             setIceServers(data.iceServers);
-            console.log("✅ Получены ICE серверы от сервера:", data.iceServers);
+            console.log("✅ Получены ICE серверы от сервера, установлены в state:", data.iceServers);
+            console.log("✅ Количество ICE серверов:", data.iceServers.length);
+            // Выводим подробности каждого сервера
+            data.iceServers.forEach((server, idx) => {
+              console.log(`  Сервер ${idx + 1}:`, server);
+            });
           } else {
             console.warn("⚠️ welcome сообщение без iceServers или iceServers не массив:", data);
           }
