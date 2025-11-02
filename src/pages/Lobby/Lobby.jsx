@@ -73,12 +73,12 @@ export const Lobby = ({ ws, playerId, players, iceServers = [] }) => {
         
         console.log("🎥 Запуск инициализации камеры в Lobby...");
         
-        // ⚡ ОПТИМИЗИРОВАННЫЕ НАСТРОЙКИ ДЛЯ 8 ИГРОКОВ: минимальное разрешение и FPS
+        // ⚡ МАКСИМАЛЬНАЯ ОПТИМИЗАЦИЯ ДЛЯ 8 ИГРОКОВ: минимальные настройки
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
-            width: { ideal: 480, max: 640 }, 
-            height: { ideal: 360, max: 480 },
-            frameRate: { ideal: 20, max: 24 }, // Снижаем до 20 fps для экономии ресурсов
+            width: { ideal: 320, max: 480 }, // Еще ниже разрешение для 8 игроков
+            height: { ideal: 240, max: 360 },
+            frameRate: { ideal: 15, max: 20 }, // Еще ниже FPS
             aspectRatio: { ideal: 4/3 },
             facingMode: 'user'
           },
@@ -86,9 +86,9 @@ export const Lobby = ({ ws, playerId, players, iceServers = [] }) => {
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
-            sampleRate: { ideal: 16000 }, // Снижаем качество аудио для экономии трафика
-            channelCount: { ideal: 1 }, // Моно вместо стерео
-            bitrate: { ideal: 24000, max: 32000 } // Ограничиваем битрейт аудио
+            sampleRate: { ideal: 8000, max: 16000 }, // Минимальный sample rate
+            channelCount: { ideal: 1 }, // Моно
+            bitrate: { ideal: 16000, max: 24000 } // Еще ниже битрейт аудио
           }
         });
         
@@ -213,12 +213,12 @@ export const Lobby = ({ ws, playerId, players, iceServers = [] }) => {
         console.log(`📤 Добавляем локальный трек ${track.kind} для ${remoteId}`);
         const sender = pc.addTrack(track, localStream);
         
-        // ⚡ ОПТИМИЗАЦИЯ ДЛЯ 8 ИГРОКОВ: Приоритизируем аудио, снижаем битрейт видео
+        // ⚡ МАКСИМАЛЬНАЯ ОПТИМИЗАЦИЯ ДЛЯ 8 ИГРОКОВ: минимальные битрейты
         if (track.kind === 'audio') {
           const params = sender.getParameters();
           if (!params.encodings) params.encodings = [{}];
           params.encodings[0].priority = 'high';
-          params.encodings[0].maxBitrate = 24000; // 24 kbps для аудио (было 32)
+          params.encodings[0].maxBitrate = 16000; // 16 kbps для аудио (минимум для 8 игроков)
           try {
             await sender.setParameters(params);
           } catch (e) {
@@ -231,29 +231,20 @@ export const Lobby = ({ ws, playerId, players, iceServers = [] }) => {
             params.encodings = [{}];
           }
           
-          // Пытаемся включить Simulcast (3 уровня качества)
+          // Для 8 игроков используем минимальные настройки (Simulcast отключен для экономии)
+          // Если Simulcast не поддерживается, используем один поток с низким битрейтом
+          console.log(`⚡ Оптимизация для 8 игроков: минимальный битрейт для ${remoteId}`);
+          params.encodings = [{
+            priority: 'low',
+            maxBitrate: 150000, // 150 kbps максимум для 8 игроков (было 300)
+            maxFramerate: 15, // 15 fps вместо 20
+            scaleResolutionDownBy: 1
+          }];
           try {
-            params.encodings = [
-              { rid: 'high', active: true, maxBitrate: 350000, scaleResolutionDownBy: 1, maxFramerate: 20 },
-              { rid: 'medium', active: true, maxBitrate: 200000, scaleResolutionDownBy: 2, maxFramerate: 15 },
-              { rid: 'low', active: true, maxBitrate: 100000, scaleResolutionDownBy: 4, maxFramerate: 10 }
-            ];
             await sender.setParameters(params);
-            console.log(`✅ Simulcast включен для ${remoteId}`);
-          } catch (e) {
-            // Если Simulcast не поддерживается, используем один поток с низким битрейтом
-            console.log(`⚠️ Simulcast не поддерживается, используем один поток для ${remoteId}`);
-            params.encodings = [{
-              priority: 'low',
-              maxBitrate: 300000, // 300 kbps максимум (было 500)
-              maxFramerate: 20,
-              scaleResolutionDownBy: 1
-            }];
-            try {
-              await sender.setParameters(params);
-            } catch (err) {
-              console.warn('Не удалось установить параметры видео:', err);
-            }
+            console.log(`✅ Параметры видео установлены для ${remoteId}: 150kbps @ 15fps`);
+          } catch (err) {
+            console.warn('Не удалось установить параметры видео:', err);
           }
         }
       }
@@ -367,34 +358,24 @@ export const Lobby = ({ ws, playerId, players, iceServers = [] }) => {
             offerToReceiveVideo: true
           });
           
-          // ⚡ ОПТИМИЗАЦИЯ ДЛЯ 8 ИГРОКОВ: Устанавливаем ограничения битрейта перед setLocalDescription
+          // ⚡ МАКСИМАЛЬНАЯ ОПТИМИЗАЦИЯ ДЛЯ 8 ИГРОКОВ: минимальные битрейты перед setLocalDescription
           try {
             const senders = pc.getSenders();
             for (const sender of senders) {
               if (sender.track) {
                 if (sender.track.kind === 'video') {
                   const params = sender.getParameters();
-                  // Пытаемся включить Simulcast
-                  try {
-                    params.encodings = [
-                      { rid: 'high', active: true, maxBitrate: 350000, scaleResolutionDownBy: 1, maxFramerate: 20 },
-                      { rid: 'medium', active: true, maxBitrate: 200000, scaleResolutionDownBy: 2, maxFramerate: 15 },
-                      { rid: 'low', active: true, maxBitrate: 100000, scaleResolutionDownBy: 4, maxFramerate: 10 }
-                    ];
-                    await sender.setParameters(params);
-                  } catch (e) {
-                    // Fallback: один поток с низким битрейтом
-                    if (!params.encodings || params.encodings.length === 0) {
-                      params.encodings = [{}];
-                    }
-                    params.encodings[0].maxBitrate = 300000; // 300 kbps для видео (было 500)
-                    params.encodings[0].maxFramerate = 20;
-                    await sender.setParameters(params);
+                  // Для 8 игроков используем минимальный битрейт без Simulcast
+                  if (!params.encodings || params.encodings.length === 0) {
+                    params.encodings = [{}];
                   }
+                  params.encodings[0].maxBitrate = 150000; // 150 kbps для видео (минимум для 8 игроков)
+                  params.encodings[0].maxFramerate = 15; // 15 fps
+                  await sender.setParameters(params);
                 } else if (sender.track.kind === 'audio') {
                   const params = sender.getParameters();
                   if (!params.encodings) params.encodings = [{}];
-                  params.encodings[0].maxBitrate = 24000; // 24 kbps для аудио (было 32)
+                  params.encodings[0].maxBitrate = 16000; // 16 kbps для аудио (минимум)
                   await sender.setParameters(params);
                 }
               }
