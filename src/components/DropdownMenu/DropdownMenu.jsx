@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import './DropdownMenu.css';
+import { GameTimer } from '../GameTimer/GameTimer';
 
-export const DropdownMenu = ({ gameStartTime }) => {
+export const DropdownMenu = ({ gameStartTime, elapsedTime }) => {
   const [dropdownMenuOpen, setDropdownMenuOpen] = useState(true);
 
   if (!gameStartTime) return null;
@@ -30,6 +31,7 @@ export const DropdownMenu = ({ gameStartTime }) => {
             </div>
           </div>
           <div className="dropdown-block-title dropdown-block-2">
+            <GameTimer elapsedTime={elapsedTime || 0} />
             <span className="bunker-title">БУНКЕР</span>
           </div>
           <div className="dropdown-block dropdown-block-3">

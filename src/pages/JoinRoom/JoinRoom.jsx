@@ -22,9 +22,6 @@ export const JoinRoom = () => {
   const wsRef = useRef(null);
   const playerIdRef = useRef(null);
 
-  // ==========================
-  // 🛰 Подключение к серверу
-  // ==========================
   useEffect(() => {
     if(wsRef.current) return
 
@@ -33,14 +30,14 @@ export const JoinRoom = () => {
     setWs(socket);
 
     socket.onopen = () => {
-      console.log("🔗 Подключено к серверу");
+      console.log("Подключено к серверу");
       setConnected(true);
       setError("");
     };
 
     socket.onmessage = (msg) => {
       const data = JSON.parse(msg.data);
-      console.log("📨 Сообщение:", data);
+      console.log("Сообщение:", data);
 
       switch (data.type) {
         case "joined_as_host":
@@ -56,18 +53,16 @@ export const JoinRoom = () => {
           break;
 
         case "players_update":
-          setPlayers(data.players);
+          setPlayers(data.players || []);
           setReadyCount(data.readyCount || 0);
-          // Если игра уже началась и пользователь вошел, переводим в лобби
           if (data.gameStarted && joined) {
             setGameStarted(true);
           }
           break;
 
         case "game_started":
-          console.log("🎮 Игра началась!");
+          console.log("Игра началась");
           setGameStarted(true);
-          // Отправляем настройки зеркалирования после начала игры
           if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && joined) {
             wsRef.current.send(
               JSON.stringify({ 
@@ -79,13 +74,13 @@ export const JoinRoom = () => {
           break;
 
         case "game_reset":
-          console.log("🔄 Игра сброшена");
+          console.log("Игра сброшена");
           setGameStarted(false);
           setReady(false);
           break;
 
         case "kicked":
-          console.log("🚪 Вы были кикнуты администратором. Перезагрузка страницы...");
+          console.log("Вы были кикнуты администратором");
           window.location.reload();
           break;
 
@@ -94,7 +89,7 @@ export const JoinRoom = () => {
           break;
 
         case "host_left":
-          console.log("⚠️ Ведущий покинул игру");
+          console.log("Ведущий покинул игру");
           break;
 
         default:
@@ -103,18 +98,17 @@ export const JoinRoom = () => {
     };
 
     socket.onclose = () => {
-      console.log("⚠️ Соединение закрыто");
+      console.log("Соединение закрыто");
       setConnected(false);
     };
 
     socket.onerror = (e) => {
-      console.error("❌ Ошибка WebSocket:", e);
+      console.error("Ошибка WebSocket:", e);
       setConnected(false);
     };
 
-    // Cleanup функция - закрываем соединение при размонтировании компонента
     return () => {
-      console.log("🔌 Размонтирование JoinRoom, закрываем WebSocket соединение");
+      console.log("Размонтирование JoinRoom, закрываем WebSocket соединение");
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.close();
       }
@@ -122,14 +116,6 @@ export const JoinRoom = () => {
     };
   }, []);
 
-  // ==========================
-  // 📤 Отправка имени игрока (используется только при нажатии "Готов")
-  // ==========================
-  // Функция sendName удалена - никнейм теперь отправляется только при нажатии "Готов"
-
-  // ==========================
-  // 🚦 Готов / не готов
-  // ==========================
   const handleReady = (e) => {
     e.preventDefault();
     if (!name.trim() || !connected) {
@@ -139,17 +125,14 @@ export const JoinRoom = () => {
 
     const playerName = name.trim();
     
-    // Если пользователь еще не вошел (не отправил никнейм), отправляем его сначала
     if (!joined && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "join", name: playerName }));
       localStorage.setItem("playerName", playerName);
     } else if (joined && !ready && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      // Если игрок отменяет готовность, можно обновить никнейм
       wsRef.current.send(JSON.stringify({ type: "join", name: playerName }));
       localStorage.setItem("playerName", playerName);
     }
 
-    // Затем отправляем статус готовности
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(
         JSON.stringify({ type: "set_ready", ready: !ready })
@@ -158,9 +141,6 @@ export const JoinRoom = () => {
     }
   };
 
-  // ==========================
-  // 🪞 Отправка настроек зеркалирования на сервер
-  // ==========================
   useEffect(() => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && joined) {
       wsRef.current.send(
@@ -172,18 +152,7 @@ export const JoinRoom = () => {
     }
   }, [mirrorCamera, joined]);
 
-  // ==========================
-  // 🕹 Переход в лобби
-  // ==========================
-  // Переходим в лобби если:
-  // 1. Игра началась И пользователь вошел в игру (joined)
-  // ИЛИ
-  // 2. Игра началась И пользователь готов (ready) - для тех кто заходит во время игры
   const shouldShowLobby = gameStarted && (joined || ready);
-
-  // ==========================
-  // 🧱 Интерфейс
-  // ==========================
 
   return (
     <>
@@ -192,7 +161,7 @@ export const JoinRoom = () => {
         <h2>{readyCount} / {players.length || 0}</h2>
         <p>
           Игроков: {players.filter(p => p.role === "player").length}/3 |
-          Ведущий: {players.some(p => p.role === "host") ? "✅" : "❌"}
+          Ведущий: {players.some(p => p.role === "host") ? "Да" : "Нет"}
         </p>
         <h3>{name ? name : "Введите никнейм"}</h3>
 
@@ -203,7 +172,6 @@ export const JoinRoom = () => {
         <div className="actions-main-block">
           <div className="webcam-container">
             <div className="webcam">
-              {/* 🎥 Камера игрока (у ведущего не отображается) */}
               {role !== "host" ? (
                 <>
                   <MyCamera className="webcamera" />
@@ -218,14 +186,14 @@ export const JoinRoom = () => {
                     </label>
                   </div>
                   {webcamIsOn ? (
-                    <strong className="webcam-is-on">Ваша вебкамера работает ✅</strong>
+                    <strong className="webcam-is-on">Ваша вебкамера работает</strong>
                   ) : (
-                    <strong>Вебкамера не работает ❌</strong>
+                    <strong>Вебкамера не работает</strong>
                   )}
                 </>
               ) : (
                 <div className="host-placeholder">
-                  🎙 Ведущий — без камеры
+                  Ведущий — без камеры
                 </div>
               )}
             </div>
@@ -254,7 +222,7 @@ export const JoinRoom = () => {
                 style={{ borderColor: ready ? "green" : "red" }}
                 className="ready-button"
                 >
-                {ready ? "Отменить ❌" : "Готов ✅"}
+                {ready ? "Отменить" : "Готов"}
               </button>
 
               <Link className="back-to-menu" to={"/home"}>
@@ -269,22 +237,25 @@ export const JoinRoom = () => {
             >
             <h4>Игроки в лобби:</h4>
             <ul>
-              {players.length > 0 ? (
-                players.map((p) => (
-                  <li key={p.id} className={`player-list-item ${p.role === "player" && p.ready ? "ready" : ""} ${p.role === "host" ? "host" : ""}`}>
-                    <div className="player-list-info">
-                      {p.role === "player" ? (
-                        <div className="player-meta">
-                          <span>{p.name}</span>
-                        </div>
-                      ) : (
-                        <div className="player-meta">
-                          🎙 {p.name}
-                        </div>
-                      )}
-                    </div>
-                  </li>
-                ))
+              {players.filter(p => p.name && (p.role === "host" || p.name.trim() !== "")).length > 0 ? (
+                players
+                  .filter(p => p.name && (p.role === "host" || p.name.trim() !== ""))
+                  .map((p) => (
+                    <li key={p.id} className={`player-list-item ${p.role === "player" && p.ready ? "ready" : ""} ${p.role === "host" ? "host" : ""}`}>
+                      <div className="player-list-info">
+                        {p.role === "player" ? (
+                          <div className="player-meta">
+                            <span>{p.name}</span>
+                            {p.ready && <span className="ready-indicator"> (Готов)</span>}
+                          </div>
+                        ) : (
+                          <div className="player-meta">
+                            Ведущий: {p.name}
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  ))
               ) : (
                 <li>Лобби пустое</li>
               )}

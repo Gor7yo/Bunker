@@ -1,24 +1,28 @@
 .game-timer {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  background: rgba(0, 0, 0, 0.8);
-  color: #fff;
-  padding: 10px 20px;
-  border-radius: 8px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  z-index: 1000;
-  font-size: 18px;
-  font-weight: bold;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 15px;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  width: 100%;
 }
 
 .timer-icon {
-  font-size: 24px;
+  font-size: 16px;
+  opacity: 0.8;
 }
 
 .timer-text {
   font-family: 'Courier New', monospace;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.9);
 }
 

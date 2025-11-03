@@ -3,7 +3,6 @@ import "./Lobby.css";
 import { DataContext } from "../../context/DataContext";
 import { useWebRTC } from "../../hooks/useWebRTC";
 import { useGameState } from "../../hooks/useGameState";
-import { GameTimer } from "../../components/GameTimer/GameTimer";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import { PlayerVideoCard } from "../../components/PlayerVideoCard/PlayerVideoCard";
 import { ControlsPanel } from "../../components/ControlsPanel/ControlsPanel";
@@ -314,8 +313,7 @@ export const Lobby = ({ ws, playerId, players }) => {
 
   return (
     <div className="lobby-container">
-      <GameTimer elapsedTime={gameStartTime ? elapsedTime : 0} />
-      <DropdownMenu gameStartTime={gameStartTime} />
+      <DropdownMenu gameStartTime={gameStartTime} elapsedTime={gameStartTime ? elapsedTime : 0} />
       
       <div className="lobby-grid">
         {players.filter(p => p.role !== "host").map((player, index) => {

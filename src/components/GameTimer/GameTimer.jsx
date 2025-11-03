@@ -14,7 +14,6 @@ export const GameTimer = ({ elapsedTime }) => {
 
   return (
     <div className="game-timer">
-      <span className="timer-icon">⏱️</span>
       <span className="timer-text">{formatTime(elapsedTime)}</span>
     </div>
   );
