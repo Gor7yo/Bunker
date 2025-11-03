@@ -21,7 +21,7 @@ export const AdminPanel = () => {
     if (wsRef.current) return;
 
     // Определяем URL WebSocket (localhost для разработки или продакшн)
-    const wsUrl = 'wss://bunker-server.onrender.com';
+    const wsUrl = 'wss://bunker-server.ru';
     
     const socket = new WebSocket(wsUrl);
     wsRef.current = socket;
