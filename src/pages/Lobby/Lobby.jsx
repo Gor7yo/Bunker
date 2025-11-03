@@ -301,15 +301,28 @@ export const Lobby = ({ ws, playerId, players }) => {
           if (videoRefs.current[remoteId]) {
             const videoElement = videoRefs.current[remoteId];
             
-            // Всегда обновляем поток для обеспечения живого видео
-            // Принудительно устанавливаем srcObject, даже если он совпадает
-            // Это заставляет браузер обновлять кадры
-            videoElement.srcObject = remoteStream;
+            // Получаем актуальные треки из потока
+            const videoTrack = remoteStream.getVideoTracks()[0];
+            const audioTrack = remoteStream.getAudioTracks()[0];
+            
+            // Если треки активны, создаем новый поток для принудительного обновления
+            if (videoTrack && videoTrack.readyState === 'live') {
+              const newStream = new MediaStream();
+              if (videoTrack) newStream.addTrack(videoTrack);
+              if (audioTrack) newStream.addTrack(audioTrack);
+              
+              // Принудительно обновляем srcObject новым потоком
+              videoElement.srcObject = newStream;
+            } else {
+              // Если треки неактивны, просто устанавливаем исходный поток
+              videoElement.srcObject = remoteStream;
+            }
+            
             videoElement.playsInline = true;
             videoElement.autoplay = true;
-            videoElement.muted = false; // Убеждаемся что звук включен
+            videoElement.muted = false;
             
-            // Применяем зеркалирование к удаленному видео, если оно включено у этого игрока
+            // Применяем зеркалирование
             const remotePlayer = players.find(p => p.id === remoteId);
             if (remotePlayer && remotePlayer.mirrorCamera) {
               videoElement.style.transform = 'scaleX(-1)';
@@ -317,12 +330,71 @@ export const Lobby = ({ ws, playerId, players }) => {
               videoElement.style.transform = 'none';
             }
             
+            // Используем события для принудительного обновления
+            let lastVideoTime = 0;
+            let stuckFrameCount = 0;
+            
+            videoElement.onloadedmetadata = () => {
+              videoElement.play().catch(err => {
+                console.warn(`⚠️ Автоплей заблокирован для ${remoteId}:`, err);
+              });
+            };
+            
+            videoElement.onloadeddata = () => {
+              // Принудительное обновление при загрузке данных
+              if (videoElement.paused) {
+                videoElement.play().catch(console.warn);
+              }
+            };
+            
+            // Отслеживаем обновление времени видео для обнаружения застрявших кадров
+            videoElement.ontimeupdate = () => {
+              const currentTime = videoElement.currentTime;
+              if (currentTime === lastVideoTime && lastVideoTime > 0) {
+                stuckFrameCount++;
+                // Если время не меняется несколько раз подряд - видео застряло
+                if (stuckFrameCount > 10) {
+                  console.warn(`⚠️ Видео застряло для ${remoteId}, принудительно обновляем`);
+                  const newStream = new MediaStream(remoteStream.getTracks());
+                  videoElement.srcObject = newStream;
+                  stuckFrameCount = 0;
+                  videoElement.play().catch(console.warn);
+                }
+              } else {
+                stuckFrameCount = 0;
+                lastVideoTime = currentTime;
+                videoElement.lastUpdateTime = Date.now();
+              }
+            };
+            
+            // Новый API для обработки кадров (если доступен)
+            if ('requestVideoFrameCallback' in videoElement) {
+              let lastFrameTime = performance.now();
+              const frameCallback = (now, metadata) => {
+                // Проверяем, что кадры действительно обновляются
+                const timeSinceLastFrame = now - lastFrameTime;
+                if (timeSinceLastFrame > 2000) {
+                  // Кадры не обновлялись более 2 секунд
+                  console.warn(`⚠️ Кадры не обновлялись для ${remoteId}, принудительно обновляем`);
+                  const newStream = new MediaStream(remoteStream.getTracks());
+                  videoElement.srcObject = newStream;
+                  videoElement.play().catch(console.warn);
+                }
+                lastFrameTime = now;
+                
+                if (videoElement.paused) {
+                  videoElement.play().catch(console.warn);
+                }
+                videoElement.requestVideoFrameCallback(frameCallback);
+              };
+              videoElement.requestVideoFrameCallback(frameCallback);
+            }
+            
             // Принудительно запускаем воспроизведение
             videoElement.play().then(() => {
               console.log(`✅ Видео и аудио воспроизводятся для ${remoteId}`);
             }).catch(err => {
               console.warn(`⚠️ Автоплей заблокирован для ${remoteId}:`, err);
-              // Повторная попытка через небольшое время
               setTimeout(() => {
                 videoElement.play().catch(console.warn);
               }, 500);
@@ -366,10 +438,32 @@ export const Lobby = ({ ws, playerId, players }) => {
           }
         };
         
-        // Периодическая проверка и обновление видео (каждые 2 секунды)
+        // Периодическая проверка и обновление видео (каждую секунду для более частого обновления)
         const videoCheckInterval = setInterval(() => {
           ensureVideoPlaying();
-        }, 2000);
+          
+          // Дополнительно проверяем и принудительно обновляем поток если нужно
+          const videoTrack = streamRef.current?.getVideoTracks()[0];
+          if (videoTrack && videoTrack.readyState === 'live' && videoRefs.current[remoteId]) {
+            const videoElement = videoRefs.current[remoteId];
+            // Проверяем, что элемент действительно показывает живые кадры
+            if (videoElement.readyState >= 2 && videoElement.srcObject) {
+              // Если видео загружено, но может быть застряло - принудительно обновляем
+              const currentTime = videoElement.currentTime;
+              // Если время не меняется более 2 секунд, обновляем
+              if (videoElement.readyState >= 2 && Date.now() - (videoElement.lastUpdateTime || 0) > 2000) {
+                console.log(`🔄 Принудительное обновление видео для ${remoteId} (кадры могут застрять)`);
+                const newStream = new MediaStream(streamRef.current.getTracks());
+                videoElement.srcObject = newStream;
+                videoElement.lastUpdateTime = Date.now();
+                videoElement.play().catch(console.warn);
+              }
+              if (!videoElement.lastUpdateTime) {
+                videoElement.lastUpdateTime = Date.now();
+              }
+            }
+          }
+        }, 1000);
         
         // Останавливаем проверку при закрытии соединения
         pc.addEventListener('connectionstatechange', () => {
