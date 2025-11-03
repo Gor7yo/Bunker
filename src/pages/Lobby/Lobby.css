@@ -551,10 +551,10 @@
   height: 100%;
   object-fit: cover;
   background: #333;
-  /* ⚡ ОПТИМИЗАЦИЯ ДЛЯ 8 ИГРОКОВ: hardware acceleration для лучшей производительности */
   transform: translateZ(0);
-  will-change: contents;
   -webkit-transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
 }

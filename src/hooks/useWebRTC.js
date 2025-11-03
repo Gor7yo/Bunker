@@ -24,9 +24,9 @@ export const useWebRTC = (ws, playerId, players) => {
         
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
-            width: { ideal: 960, max: 960 }, 
-            height: { ideal: 540, max: 540 },
-            frameRate: { ideal: 24, max: 24 },
+            width: { ideal: 640, max: 960 }, 
+            height: { ideal: 360, max: 540 },
+            frameRate: { ideal: 20, max: 24 },
             aspectRatio: { ideal: 16/9 },
             facingMode: 'user'
           }
@@ -107,23 +107,38 @@ export const useWebRTC = (ws, playerId, players) => {
         const sender = pc.addTrack(track, localStream);
         
         if (track.kind === 'video') {
-          const params = sender.getParameters();
-          if (!params.encodings || params.encodings.length === 0) {
-            params.encodings = [{}];
-          }
-          
-          params.encodings = [{
-            maxBitrate: 1000000,
-            maxFramerate: 24,
-            scaleResolutionDownBy: 1
-          }];
-          
           try {
-            await sender.setParameters(params);
-            console.log(`Установлены параметры видео для ${remoteId}: 1 Мбит/с, 24 FPS`);
-          } catch (err) {
-            console.warn('Не удалось установить параметры видео:', err);
+            const transceiver = pc.getTransceivers().find(t => t.sender === sender);
+            if (transceiver && RTCRtpReceiver.getCapabilities) {
+              const codecs = RTCRtpReceiver.getCapabilities('video').codecs;
+              const vp8Codec = codecs.find(codec => codec.mimeType === 'video/VP8');
+              if (vp8Codec) {
+                transceiver.setCodecPreferences([vp8Codec]);
+              }
+            }
+          } catch (e) {
+            console.warn('Не удалось установить предпочтения кодека:', e);
           }
+          
+          setTimeout(async () => {
+            try {
+              const params = sender.getParameters();
+              if (!params.encodings || params.encodings.length === 0) {
+                params.encodings = [{}];
+              }
+              
+              params.encodings = [{
+                maxBitrate: 800000,
+                maxFramerate: 20,
+                scaleResolutionDownBy: 1
+              }];
+              
+              await sender.setParameters(params);
+              console.log(`Установлены параметры видео для ${remoteId}: 800 кбит/с, 20 FPS`);
+            } catch (err) {
+              console.warn('Не удалось установить параметры видео:', err);
+            }
+          }, 100);
         }
       }
     }
@@ -134,14 +149,18 @@ export const useWebRTC = (ws, playerId, players) => {
       if (event.streams && event.streams[0]) {
         const remoteStream = event.streams[0];
         
-        setTimeout(() => {
+        const updateVideoElement = () => {
           if (videoRefs.current[remoteId]) {
             const videoElement = videoRefs.current[remoteId];
             
             const videoTracks = remoteStream.getVideoTracks();
-            if (videoTracks.length > 0) {
+            if (videoTracks.length > 0 && videoTracks[0].readyState === 'live') {
               const videoOnlyStream = new MediaStream(videoTracks);
-              videoElement.srcObject = videoOnlyStream;
+              
+              if (videoElement.srcObject !== videoOnlyStream) {
+                videoElement.srcObject = videoOnlyStream;
+              }
+              
               videoElement.playsInline = true;
               videoElement.muted = true;
               
@@ -152,14 +171,16 @@ export const useWebRTC = (ws, playerId, players) => {
                 videoElement.style.transform = 'none';
               }
               
-              videoElement.play().then(() => {
-                console.log(`Видео воспроизводится для ${remoteId}`);
-              }).catch(err => {
-                console.warn(`Автоплей заблокирован для ${remoteId}:`, err);
-              });
+              if (videoElement.paused) {
+                videoElement.play().catch(err => {
+                  console.warn(`Автоплей заблокирован для ${remoteId}:`, err);
+                });
+              }
             }
           }
-        }, 100);
+        };
+        
+        setTimeout(updateVideoElement, 100);
       }
     };
 
@@ -218,7 +239,7 @@ export const useWebRTC = (ws, playerId, players) => {
     if (remoteId > playerId) {
       console.log(`Инициируем offer для ${remoteId}`);
       
-      setTimeout(async () => {
+      const offerTimeout = setTimeout(async () => {
         try {
           const offer = await pc.createOffer({
             offerToReceiveAudio: false,
@@ -234,8 +255,8 @@ export const useWebRTC = (ws, playerId, players) => {
                   params.encodings = [{}];
                 }
                 params.encodings = [{
-                  maxBitrate: 1000000,
-                  maxFramerate: 24,
+                  maxBitrate: 800000,
+                  maxFramerate: 20,
                   scaleResolutionDownBy: 1
                 }];
                 try {
@@ -261,7 +282,9 @@ export const useWebRTC = (ws, playerId, players) => {
         } catch (error) {
           console.error(`Ошибка создания offer для ${remoteId}:`, error);
         }
-      }, 1000);
+      }, 500);
+      
+      pc._offerTimeout = offerTimeout;
     }
 
     peersRef.current[remoteId] = pc;
@@ -273,23 +296,27 @@ export const useWebRTC = (ws, playerId, players) => {
       return;
     }
 
-    console.log("Обновление WebRTC соединений, игроков:", players.length);
-    
-    players.forEach(player => {
-      if (player.id !== playerId && !peersRef.current[player.id]) {
-        console.log(`Создаем соединение с ${player.name}`);
-        createPeerConnection(player.id);
-      }
-    });
+    const timeoutId = setTimeout(() => {
+      console.log("Обновление WebRTC соединений, игроков:", players.length);
+      
+      players.forEach(player => {
+        if (player.id !== playerId && !peersRef.current[player.id]) {
+          console.log(`Создаем соединение с ${player.name}`);
+          createPeerConnection(player.id);
+        }
+      });
 
-    Object.keys(peersRef.current).forEach(peerId => {
-      if (!players.find(p => p.id === peerId)) {
-        console.log(`Закрываем соединение с ${peerId}`);
-        peersRef.current[peerId].close();
-        delete peersRef.current[peerId];
-        delete videoRefs.current[peerId];
-      }
-    });
+      Object.keys(peersRef.current).forEach(peerId => {
+        if (!players.find(p => p.id === peerId)) {
+          console.log(`Закрываем соединение с ${peerId}`);
+          peersRef.current[peerId].close();
+          delete peersRef.current[peerId];
+          delete videoRefs.current[peerId];
+        }
+      });
+    }, 200);
+
+    return () => clearTimeout(timeoutId);
   }, [players, localStream, ws, playerId, createPeerConnection]);
 
   useEffect(() => {
