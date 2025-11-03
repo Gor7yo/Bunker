@@ -301,14 +301,13 @@ export const Lobby = ({ ws, playerId, players }) => {
           if (videoRefs.current[remoteId]) {
             const videoElement = videoRefs.current[remoteId];
             
-            // Проверяем, нужно ли обновить поток
-            if (videoElement.srcObject !== remoteStream) {
-              console.log(`🔄 Обновляем видео поток для ${remoteId}`);
-              videoElement.srcObject = remoteStream;
-            }
-            
+            // Всегда обновляем поток для обеспечения живого видео
+            // Принудительно устанавливаем srcObject, даже если он совпадает
+            // Это заставляет браузер обновлять кадры
+            videoElement.srcObject = remoteStream;
             videoElement.playsInline = true;
             videoElement.autoplay = true;
+            videoElement.muted = false; // Убеждаемся что звук включен
             
             // Применяем зеркалирование к удаленному видео, если оно включено у этого игрока
             const remotePlayer = players.find(p => p.id === remoteId);
@@ -337,10 +336,53 @@ export const Lobby = ({ ws, playerId, players }) => {
         // Попытка обновить сразу
         updateVideoElement();
         
+        // Храним ссылку на поток для периодической проверки
+        const streamRef = { current: remoteStream };
+        
+        // Функция для принудительного обновления видео при необходимости
+        const ensureVideoPlaying = () => {
+          if (videoRefs.current[remoteId]) {
+            const videoElement = videoRefs.current[remoteId];
+            
+            // Проверяем состояние видео элемента
+            if (videoElement.paused || !videoElement.srcObject) {
+              console.log(`🔄 Принудительно обновляем видео для ${remoteId} (paused: ${videoElement.paused})`);
+              if (!videoElement.srcObject && streamRef.current) {
+                videoElement.srcObject = streamRef.current;
+              }
+              videoElement.play().catch(err => {
+                console.warn(`⚠️ Не удалось запустить видео для ${remoteId}:`, err);
+              });
+            }
+            
+            // Проверяем состояние треков
+            const videoTrack = streamRef.current?.getVideoTracks()[0];
+            if (videoTrack && videoTrack.readyState === 'live' && !videoTrack.muted) {
+              // Если трек живой, убеждаемся что видео воспроизводится
+              if (videoElement.paused) {
+                videoElement.play().catch(console.warn);
+              }
+            }
+          }
+        };
+        
+        // Периодическая проверка и обновление видео (каждые 2 секунды)
+        const videoCheckInterval = setInterval(() => {
+          ensureVideoPlaying();
+        }, 2000);
+        
+        // Останавливаем проверку при закрытии соединения
+        pc.addEventListener('connectionstatechange', () => {
+          if (pc.connectionState === 'closed' || pc.connectionState === 'disconnected') {
+            clearInterval(videoCheckInterval);
+          }
+        });
+        
         // Также слушаем изменения треков в потоке
         remoteStream.getTracks().forEach(track => {
           track.onended = () => {
             console.log(`⚠️ Трек ${track.kind} завершен для ${remoteId}, обновляем поток`);
+            clearInterval(videoCheckInterval);
             updateVideoElement();
           };
           
@@ -355,14 +397,33 @@ export const Lobby = ({ ws, playerId, players }) => {
             // Задержка для стабильности
             setTimeout(() => {
               updateVideoElement();
+              ensureVideoPlaying();
             }, 100);
           };
+          
+          // Слушаем изменения состояния готовности трека
+          if (track.kind === 'video') {
+            // Дополнительная проверка при изменении readyState
+            const checkTrack = () => {
+              if (track.readyState === 'live') {
+                ensureVideoPlaying();
+              }
+            };
+            // Проверяем периодически состояние трека
+            const trackCheckInterval = setInterval(checkTrack, 1000);
+            
+            track.onended = () => {
+              clearInterval(trackCheckInterval);
+              clearInterval(videoCheckInterval);
+            };
+          }
         });
         
         // Также слушаем события добавления/удаления треков из потока
         remoteStream.onaddtrack = (event) => {
           console.log(`➕ Добавлен трек ${event.track.kind} для ${remoteId}`);
           updateVideoElement();
+          ensureVideoPlaying();
         };
         
         remoteStream.onremovetrack = (event) => {
