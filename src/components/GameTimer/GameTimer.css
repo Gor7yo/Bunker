@@ -1,0 +1,24 @@
+.game-timer {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 1000;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.timer-icon {
+  font-size: 24px;
+}
+
+.timer-text {
+  font-family: 'Courier New', monospace;
+}
+
