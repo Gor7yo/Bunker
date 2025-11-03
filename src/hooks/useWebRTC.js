@@ -24,9 +24,9 @@ export const useWebRTC = (ws, playerId, players) => {
         
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
-            width: { ideal: 1280, max: 1920 }, 
-            height: { ideal: 720, max: 1080 },
-            frameRate: { ideal: 30, max: 60 },
+            width: { ideal: 960, max: 960 }, 
+            height: { ideal: 540, max: 540 },
+            frameRate: { ideal: 24, max: 24 },
             aspectRatio: { ideal: 16/9 },
             facingMode: 'user'
           }
@@ -112,27 +112,17 @@ export const useWebRTC = (ws, playerId, players) => {
             params.encodings = [{}];
           }
           
+          params.encodings = [{
+            maxBitrate: 1000000,
+            maxFramerate: 24,
+            scaleResolutionDownBy: 1
+          }];
+          
           try {
-            params.encodings = [
-              { rid: 'high', active: true, maxBitrate: 2000000, scaleResolutionDownBy: 1, maxFramerate: 30 },
-              { rid: 'medium', active: true, maxBitrate: 1000000, scaleResolutionDownBy: 2, maxFramerate: 24 },
-              { rid: 'low', active: true, maxBitrate: 500000, scaleResolutionDownBy: 4, maxFramerate: 15 }
-            ];
             await sender.setParameters(params);
-            console.log(`Simulcast включен для ${remoteId}`);
-          } catch (e) {
-            console.log(`Simulcast не поддерживается, используем один поток для ${remoteId}`);
-            params.encodings = [{
-              priority: 'high',
-              maxBitrate: 2000000,
-              maxFramerate: 30,
-              scaleResolutionDownBy: 1
-            }];
-            try {
-              await sender.setParameters(params);
-            } catch (err) {
-              console.warn('Не удалось установить параметры видео:', err);
-            }
+            console.log(`Установлены параметры видео для ${remoteId}: 1 Мбит/с, 24 FPS`);
+          } catch (err) {
+            console.warn('Не удалось установить параметры видео:', err);
           }
         }
       }
@@ -240,20 +230,18 @@ export const useWebRTC = (ws, playerId, players) => {
             for (const sender of senders) {
               if (sender.track && sender.track.kind === 'video') {
                 const params = sender.getParameters();
+                if (!params.encodings || params.encodings.length === 0) {
+                  params.encodings = [{}];
+                }
+                params.encodings = [{
+                  maxBitrate: 1000000,
+                  maxFramerate: 24,
+                  scaleResolutionDownBy: 1
+                }];
                 try {
-                  params.encodings = [
-                    { rid: 'high', active: true, maxBitrate: 2000000, scaleResolutionDownBy: 1, maxFramerate: 30 },
-                    { rid: 'medium', active: true, maxBitrate: 1000000, scaleResolutionDownBy: 2, maxFramerate: 24 },
-                    { rid: 'low', active: true, maxBitrate: 500000, scaleResolutionDownBy: 4, maxFramerate: 15 }
-                  ];
                   await sender.setParameters(params);
                 } catch (e) {
-                  if (!params.encodings || params.encodings.length === 0) {
-                    params.encodings = [{}];
-                  }
-                  params.encodings[0].maxBitrate = 2000000;
-                  params.encodings[0].maxFramerate = 30;
-                  await sender.setParameters(params);
+                  console.warn('Не удалось установить параметры видео:', e);
                 }
               }
             }
