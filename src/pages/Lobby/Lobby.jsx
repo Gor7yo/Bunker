@@ -41,6 +41,7 @@ export const Lobby = ({ ws, playerId, players }) => {
   const videoRefs = useRef({});
   const isInitialized = useRef(false);
   const streamLockRef = useRef(false); // Защита от дублирования потоков
+  const iceCandidatesQueue = useRef({}); // Буфер для ICE кандидатов до установки remote description
 
   // =========================
   // 📹 Инициализация локальной камеры (УПРОЩЕННАЯ)
@@ -153,9 +154,14 @@ export const Lobby = ({ ws, playerId, players }) => {
     Object.keys(peersRef.current).forEach(peerId => {
       if (!players.find(p => p.id === peerId)) {
         console.log(`🗑️ Закрываем соединение с ${peerId}`);
-        peersRef.current[peerId].close();
+        try {
+          peersRef.current[peerId].close();
+        } catch (e) {
+          console.warn('Ошибка при закрытии соединения:', e);
+        }
         delete peersRef.current[peerId];
         delete videoRefs.current[peerId];
+        delete iceCandidatesQueue.current[peerId]; // Очищаем очередь ICE кандидатов
       }
     });
   }, [players, localStream, ws, playerId]);
@@ -164,9 +170,19 @@ export const Lobby = ({ ws, playerId, players }) => {
   // 🔗 Создание PeerConnection (ИСПРАВЛЕННОЕ)
   // =========================
   const createPeerConnection = async (remoteId) => {
+    // Двойная проверка для защиты от race condition
     if (peersRef.current[remoteId]) {
-      console.log(`⚠️ Соединение с ${remoteId} уже существует`);
-      return peersRef.current[remoteId];
+      const existingPc = peersRef.current[remoteId];
+      // Проверяем, что соединение не закрыто
+      if (existingPc.connectionState !== 'closed' && existingPc.signalingState !== 'closed') {
+        console.log(`⚠️ Соединение с ${remoteId} уже существует (${existingPc.connectionState})`);
+        return existingPc;
+      } else {
+        // Если соединение закрыто, удаляем его
+        console.log(`🗑️ Удаляем закрытое соединение с ${remoteId}`);
+        delete peersRef.current[remoteId];
+        delete iceCandidatesQueue.current[remoteId];
+      }
     }
 
     console.log(`🎯 Создаем RTCPeerConnection для ${remoteId}`);
@@ -299,11 +315,15 @@ export const Lobby = ({ ws, playerId, players }) => {
           // Обработка изменений состояния трека
           track.onmute = () => {
             console.log(`⚠️ Трек ${track.kind} заглушен для ${remoteId}`);
+            // Не обновляем видео при mute, только логируем
           };
           
           track.onunmute = () => {
             console.log(`✅ Трек ${track.kind} разглушен для ${remoteId}, обновляем поток`);
-            updateVideoElement();
+            // Задержка для стабильности
+            setTimeout(() => {
+              updateVideoElement();
+            }, 100);
           };
         });
         
@@ -636,12 +656,29 @@ export const Lobby = ({ ws, playerId, players }) => {
           if (!pc) {
             console.log(`🔗 Создаем новое соединение для входящего сигнала от ${data.fromId}`);
             pc = await createPeerConnection(data.fromId);
+            // Инициализируем очередь для ICE кандидатов для этого соединения
+            if (!iceCandidatesQueue.current[data.fromId]) {
+              iceCandidatesQueue.current[data.fromId] = [];
+            }
           }
 
           try {
             if (data.signal.type === "offer") {
               console.log(`📥 Получен offer от ${data.fromId}`);
               await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
+              
+              // Применяем накопленные ICE кандидаты
+              if (iceCandidatesQueue.current[data.fromId]) {
+                console.log(`🧊 Применяем ${iceCandidatesQueue.current[data.fromId].length} накопленных ICE кандидатов для ${data.fromId}`);
+                for (const candidate of iceCandidatesQueue.current[data.fromId]) {
+                  try {
+                    await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                  } catch (err) {
+                    console.warn(`⚠️ Ошибка применения ICE кандидата:`, err);
+                  }
+                }
+                iceCandidatesQueue.current[data.fromId] = [];
+              }
               
               const answer = await pc.createAnswer();
               await pc.setLocalDescription(answer);
@@ -658,9 +695,38 @@ export const Lobby = ({ ws, playerId, players }) => {
               console.log(`📥 Получен answer от ${data.fromId}`);
               await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
               
+              // Применяем накопленные ICE кандидаты
+              if (iceCandidatesQueue.current[data.fromId]) {
+                console.log(`🧊 Применяем ${iceCandidatesQueue.current[data.fromId].length} накопленных ICE кандидатов для ${data.fromId}`);
+                for (const candidate of iceCandidatesQueue.current[data.fromId]) {
+                  try {
+                    await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                  } catch (err) {
+                    console.warn(`⚠️ Ошибка применения ICE кандидата:`, err);
+                  }
+                }
+                iceCandidatesQueue.current[data.fromId] = [];
+              }
+              
             } else if (data.signal.type === "ice-candidate" && data.signal.candidate) {
               console.log(`🧊 Получен ICE кандидат от ${data.fromId}`);
-              await pc.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
+              
+              // Проверяем, установлен ли remote description
+              if (pc.remoteDescription) {
+                // Если установлен - применяем сразу
+                try {
+                  await pc.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
+                } catch (error) {
+                  console.warn(`⚠️ Ошибка добавления ICE кандидата для ${data.fromId}:`, error);
+                }
+              } else {
+                // Если не установлен - сохраняем в очередь
+                if (!iceCandidatesQueue.current[data.fromId]) {
+                  iceCandidatesQueue.current[data.fromId] = [];
+                }
+                iceCandidatesQueue.current[data.fromId].push(data.signal.candidate);
+                console.log(`💾 ICE кандидат сохранен в очередь для ${data.fromId} (в очереди: ${iceCandidatesQueue.current[data.fromId].length})`);
+              }
             }
           } catch (error) {
             console.error(`❌ Ошибка обработки сигнала от ${data.fromId}:`, error);
@@ -771,25 +837,39 @@ export const Lobby = ({ ws, playerId, players }) => {
               }
             });
             
-            // Также проверяем streams из connection
-            pc.getTransceivers().forEach(transceiver => {
-              if (transceiver.receiver && transceiver.receiver.track) {
-                const track = transceiver.receiver.track;
-                if (track.kind === 'video' && track.readyState === 'live') {
-                  const stream = new MediaStream([track]);
-                  if (!videoElement.srcObject || videoElement.srcObject !== stream) {
-                    console.log(`🔄 Принудительно обновляем поток для ${player.id}`);
-                    videoElement.srcObject = stream;
-                    videoElement.play().catch(console.warn);
+            // Также проверяем streams из connection - используем оригинальный поток из ontrack
+            if (pc.getReceivers && pc.getReceivers().length > 0) {
+              const receivers = pc.getReceivers();
+              const videoReceiver = receivers.find(r => r.track && r.track.kind === 'video');
+              
+              if (videoReceiver && videoReceiver.track && videoReceiver.track.readyState === 'live') {
+                // Создаем поток только если его еще нет или если текущий неактивен
+                const currentStream = videoElement.srcObject;
+                const needsUpdate = !currentStream || 
+                  (currentStream instanceof MediaStream && 
+                   (!currentStream.getVideoTracks().length || 
+                    !currentStream.getVideoTracks().some(t => t.readyState === 'live')));
+                
+                if (needsUpdate) {
+                  console.log(`🔄 Принудительно обновляем поток для ${player.id}`);
+                  const newStream = new MediaStream([videoReceiver.track]);
+                  // Добавляем аудио трек, если есть
+                  const audioReceiver = receivers.find(r => r.track && r.track.kind === 'audio');
+                  if (audioReceiver && audioReceiver.track) {
+                    newStream.addTrack(audioReceiver.track);
                   }
+                  videoElement.srcObject = newStream;
+                  videoElement.play().catch(console.warn);
                 }
               }
-            });
+            }
           }
           
           // Принудительное обновление воспроизведения
-          if (videoElement.paused) {
-            videoElement.play().catch(console.warn);
+          if (videoElement.paused && videoElement.srcObject) {
+            videoElement.play().catch(err => {
+              console.warn(`⚠️ Не удалось запустить видео для ${player.id}:`, err);
+            });
           }
         }
       }
@@ -804,9 +884,18 @@ export const Lobby = ({ ws, playerId, players }) => {
       console.log("🧹 Очистка WebRTC соединений");
       Object.values(peersRef.current).forEach(pc => {
         if (pc && pc.connectionState !== 'closed') {
-          pc.close();
+          try {
+            pc.close();
+          } catch (e) {
+            console.warn('Ошибка при закрытии соединения:', e);
+          }
         }
       });
+      
+      // Очищаем все ссылки
+      peersRef.current = {};
+      videoRefs.current = {};
+      iceCandidatesQueue.current = {};
       
       if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
