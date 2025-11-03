@@ -41,6 +41,7 @@ export const Lobby = ({ ws, playerId, players }) => {
   const videoRefs = useRef({});
   const isInitialized = useRef(false);
   const streamLockRef = useRef(false); // Защита от дублирования потоков
+  const playPromisesRef = useRef({}); // Храним промисы play() для каждого видео элемента
 
   // =========================
   // 📹 Инициализация локальной камеры (УПРОЩЕННАЯ)
@@ -99,12 +100,32 @@ export const Lobby = ({ ws, playerId, players }) => {
         // Сразу подключаем к своему видео элементу
         if (videoRefs.current[playerId]) {
           const videoElement = videoRefs.current[playerId];
-          videoElement.srcObject = stream;
-          // Не мутируем локальное видео, чтобы слышать свой звук (если нужно)
           
-          await videoElement.play().catch(err => {
-            console.warn("⚠️ Автоплей заблокирован, но поток подключен:", err);
-          });
+          // Отменяем предыдущий play(), если есть
+          if (playPromisesRef.current[playerId]) {
+            playPromisesRef.current[playerId] = null;
+          }
+          
+          videoElement.srcObject = stream;
+          videoElement.playsInline = true;
+          videoElement.muted = false;
+          
+          // Пытаемся запустить воспроизведение только если видео остановлено
+          if (videoElement.paused) {
+            try {
+              const playPromise = videoElement.play();
+              playPromisesRef.current[playerId] = playPromise;
+              await playPromise;
+              playPromisesRef.current[playerId] = null;
+            } catch (err) {
+              if (err.name === 'AbortError') {
+                console.log("🔄 Запрос воспроизведения локального видео прерван");
+              } else {
+                console.warn("⚠️ Автоплей заблокирован для локального видео:", err.name);
+              }
+              playPromisesRef.current[playerId] = null;
+            }
+          }
         }
         
       } catch (err) {
@@ -156,6 +177,7 @@ export const Lobby = ({ ws, playerId, players }) => {
         peersRef.current[peerId].close();
         delete peersRef.current[peerId];
         delete videoRefs.current[peerId];
+        delete playPromisesRef.current[peerId]; // Очищаем промис play()
       }
     });
   }, [players, localStream, ws, playerId]);
@@ -254,27 +276,65 @@ export const Lobby = ({ ws, playerId, players }) => {
           // Элемент будет создан в render
         }
         
+        // Функция для безопасного воспроизведения видео
+        const safePlay = async (videoElement, playerId) => {
+          // Отменяем предыдущий запрос play(), если он еще выполняется
+          if (playPromisesRef.current[playerId]) {
+            // Просто игнорируем предыдущий промис, он будет отклонен автоматически
+            playPromisesRef.current[playerId] = null;
+          }
+          
+          // Небольшая задержка перед установкой srcObject, чтобы дать время завершиться предыдущим операциям
+          await new Promise(resolve => setTimeout(resolve, 50));
+          
+          // Проверяем, что элемент все еще существует и не изменился
+          if (!videoRefs.current[playerId] || videoRefs.current[playerId] !== videoElement) {
+            return;
+          }
+          
+          // Устанавливаем srcObject только если он изменился
+          if (videoElement.srcObject !== remoteStream) {
+            videoElement.srcObject = remoteStream;
+          }
+          
+          videoElement.playsInline = true;
+          videoElement.muted = false;
+          
+          // Применяем зеркалирование
+          const remotePlayer = players.find(p => p.id === remoteId);
+          if (remotePlayer && remotePlayer.mirrorCamera) {
+            videoElement.style.transform = 'scaleX(-1)';
+          } else {
+            videoElement.style.transform = 'none';
+          }
+          
+          // Вызываем play() только если видео не играет
+          if (videoElement.paused) {
+            try {
+              const playPromise = videoElement.play();
+              playPromisesRef.current[playerId] = playPromise;
+              
+              await playPromise;
+              console.log(`✅ Видео и аудио воспроизводятся для ${remoteId}`);
+              playPromisesRef.current[playerId] = null;
+            } catch (err) {
+              // AbortError - это нормально, просто означает что запрос был прерван
+              if (err.name === 'AbortError') {
+                // Не логируем AbortError как ошибку, это ожидаемое поведение
+                console.log(`🔄 Запрос воспроизведения прерван для ${remoteId} (новый поток)`);
+              } else {
+                console.warn(`⚠️ Автоплей заблокирован для ${remoteId}:`, err.name);
+              }
+              playPromisesRef.current[playerId] = null;
+            }
+          }
+        };
+        
         // Ждем немного чтобы элемент успел создаться в DOM
         setTimeout(() => {
           if (videoRefs.current[remoteId]) {
             const videoElement = videoRefs.current[remoteId];
-            
-            videoElement.srcObject = remoteStream;
-            videoElement.playsInline = true;
-            // Звук включен для удаленных игроков
-            
-            // Применяем зеркалирование к удаленному видео, если оно включено у этого игрока
-            // Находим информацию об игроке из списка players
-            const remotePlayer = players.find(p => p.id === remoteId);
-            if (remotePlayer && remotePlayer.mirrorCamera) {
-              videoElement.style.transform = 'scaleX(-1)';
-            }
-            
-            videoElement.play().then(() => {
-              console.log(`✅ Видео и аудио воспроизводятся для ${remoteId}`);
-            }).catch(err => {
-              console.warn(`⚠️ Автоплей заблокирован для ${remoteId}:`, err);
-            });
+            safePlay(videoElement, remoteId);
           }
         }, 100);
       }
@@ -735,6 +795,9 @@ export const Lobby = ({ ws, playerId, players }) => {
       if (roundAnimationTimeoutRef.current) {
         clearTimeout(roundAnimationTimeoutRef.current);
       }
+      
+      // Очищаем все промисы play()
+      playPromisesRef.current = {};
     };
   }, []);
 
