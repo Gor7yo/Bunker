@@ -687,34 +687,19 @@ export const Lobby = ({ ws, playerId, players }) => {
   }, [gameStartTime]);
 
   // =========================
-  // 🔄 Подключение локального потока к видео элементу и применение зеркалирования
+  // 🔄 Применение зеркалирования к локальному видео
   // =========================
   useEffect(() => {
     if (videoRefs.current[playerId]) {
       const localVideo = videoRefs.current[playerId];
-      
-      // Подключаем локальный поток если он есть и еще не подключен
-      if (localStream && (!localVideo.srcObject || localVideo.srcObject !== localStream)) {
-        console.log(`📹 Подключаем локальный поток к видео элементу для ${playerId}`);
-        localVideo.srcObject = localStream;
-        localVideo.playsInline = true;
-        localVideo.muted = true; // Мутим локальное видео
-        
-        localVideo.play().then(() => {
-          console.log(`✅ Локальное видео воспроизводится для ${playerId}`);
-        }).catch(err => {
-          console.warn("⚠️ Автоплей заблокирован для локального видео:", err);
-        });
-      }
-      
-      // Применяем зеркалирование
+      // Применяем зеркалирование только если оно включено в настройках
       if (mirrorCamera) {
         localVideo.style.transform = 'scaleX(-1)';
       } else {
         localVideo.style.transform = 'none';
       }
     }
-  }, [mirrorCamera, playerId, localStream]);
+  }, [mirrorCamera, playerId]);
 
   // =========================
   // 🔄 Применение зеркалирования ко всем видео элементам при изменении players
