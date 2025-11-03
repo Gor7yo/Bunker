@@ -48,9 +48,6 @@
 
 /* Таймер игры */
 .game-timer {
-  position: fixed;
-  top: 20px;
-  right: 20px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -289,7 +286,7 @@
 
 .dropdown-block-2 {
   width: 444px;
-  height: 128px;
+  height: auto;
   align-self: center;
   margin: 0;
   /* Центральный блок: его низ должен быть на 66px выше низа меню (750px) */
@@ -369,8 +366,6 @@
   width: 641px;
   height: 131px;
   align-self: flex-end;
-  margin-top: auto;
-  margin-bottom: 0;
   padding: 15px 30px 15px 20px;
   display: flex;
   flex-direction: column;
