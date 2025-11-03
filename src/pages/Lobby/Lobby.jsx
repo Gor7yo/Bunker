@@ -60,23 +60,16 @@ export const Lobby = ({ ws, playerId, players }) => {
         
         console.log("🎥 Запуск инициализации камеры в Lobby...");
         
-        // ⚡ ОПТИМИЗИРОВАННЫЕ НАСТРОЙКИ ДЛЯ 8 ИГРОКОВ: минимальное разрешение и FPS
+        // ⚡ ВЫСОКИЕ НАСТРОЙКИ КАЧЕСТВА: без звука, только видео
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
-            width: { ideal: 480, max: 640 }, 
-            height: { ideal: 360, max: 480 },
-            frameRate: { ideal: 20, max: 24 }, // Снижаем до 20 fps для экономии ресурсов
-            aspectRatio: { ideal: 4/3 },
+            width: { ideal: 1280, max: 1920 }, 
+            height: { ideal: 720, max: 1080 },
+            frameRate: { ideal: 30, max: 60 }, // Высокое качество - 30 fps
+            aspectRatio: { ideal: 16/9 },
             facingMode: 'user'
-          },
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-            sampleRate: { ideal: 16000 }, // Снижаем качество аудио для экономии трафика
-            channelCount: { ideal: 1 }, // Моно вместо стерео
-            bitrate: { ideal: 24000, max: 32000 } // Ограничиваем битрейт аудио
           }
+          // Аудио отключено - работаем только с видео
         });
         
         streamObtained = true;
@@ -87,9 +80,8 @@ export const Lobby = ({ ws, playerId, players }) => {
           return;
         }
         
-        console.log("✅ Камера и микрофон инициализированы в Lobby, треки:", {
-          video: stream.getVideoTracks().map(t => ({enabled: t.enabled, readyState: t.readyState})),
-          audio: stream.getAudioTracks().map(t => ({enabled: t.enabled, readyState: t.readyState}))
+        console.log("✅ Камера инициализирована в Lobby, треки:", {
+          video: stream.getVideoTracks().map(t => ({enabled: t.enabled, readyState: t.readyState}))
         });
         
         streamLockRef.current = true;
@@ -187,48 +179,44 @@ export const Lobby = ({ ws, playerId, players }) => {
       iceCandidatePoolSize: 0 // Не предзагружаем кандидаты (экономия ресурсов)
     });
 
-    // 🔥 Добавляем все треки (видео и аудио) с приоритизацией
+    // 🔥 Добавляем только видео треки (аудио отключено)
     if (localStream) {
       // Используем for...of вместо forEach для поддержки async/await
       const tracks = localStream.getTracks();
       for (const track of tracks) {
+        // Пропускаем аудио треки - работаем только с видео
+        if (track.kind === 'audio') {
+          console.log(`🔇 Пропускаем аудио трек для ${remoteId}`);
+          continue;
+        }
+        
         console.log(`📤 Добавляем локальный трек ${track.kind} для ${remoteId}`);
         const sender = pc.addTrack(track, localStream);
         
-        // ⚡ ОПТИМИЗАЦИЯ ДЛЯ 8 ИГРОКОВ: Приоритизируем аудио, снижаем битрейт видео
-        if (track.kind === 'audio') {
-          const params = sender.getParameters();
-          if (!params.encodings) params.encodings = [{}];
-          params.encodings[0].priority = 'high';
-          params.encodings[0].maxBitrate = 24000; // 24 kbps для аудио (было 32)
-          try {
-            await sender.setParameters(params);
-          } catch (e) {
-            console.warn('Не удалось установить параметры аудио:', e);
-          }
-        } else if (track.kind === 'video') {
+        // ⚡ ВЫСОКИЕ НАСТРОЙКИ КАЧЕСТВА: только видео
+        if (track.kind === 'video') {
           // Проверяем поддержку Simulcast для адаптивного качества
           const params = sender.getParameters();
           if (!params.encodings || params.encodings.length === 0) {
             params.encodings = [{}];
           }
           
-          // Пытаемся включить Simulcast (3 уровня качества)
+          // Пытаемся включить Simulcast с высоким качеством (3 уровня)
           try {
             params.encodings = [
-              { rid: 'high', active: true, maxBitrate: 350000, scaleResolutionDownBy: 1, maxFramerate: 20 },
-              { rid: 'medium', active: true, maxBitrate: 200000, scaleResolutionDownBy: 2, maxFramerate: 15 },
-              { rid: 'low', active: true, maxBitrate: 100000, scaleResolutionDownBy: 4, maxFramerate: 10 }
+              { rid: 'high', active: true, maxBitrate: 2000000, scaleResolutionDownBy: 1, maxFramerate: 30 },
+              { rid: 'medium', active: true, maxBitrate: 1000000, scaleResolutionDownBy: 2, maxFramerate: 24 },
+              { rid: 'low', active: true, maxBitrate: 500000, scaleResolutionDownBy: 4, maxFramerate: 15 }
             ];
             await sender.setParameters(params);
-            console.log(`✅ Simulcast включен для ${remoteId}`);
+            console.log(`✅ Simulcast включен для ${remoteId} (высокое качество)`);
           } catch (e) {
-            // Если Simulcast не поддерживается, используем один поток с низким битрейтом
+            // Если Simulcast не поддерживается, используем один поток с высоким битрейтом
             console.log(`⚠️ Simulcast не поддерживается, используем один поток для ${remoteId}`);
             params.encodings = [{
-              priority: 'low',
-              maxBitrate: 300000, // 300 kbps максимум (было 500)
-              maxFramerate: 20,
+              priority: 'high',
+              maxBitrate: 2000000, // 2 Mbps - высокое качество
+              maxFramerate: 30,
               scaleResolutionDownBy: 1
             }];
             try {
@@ -259,22 +247,28 @@ export const Lobby = ({ ws, playerId, players }) => {
           if (videoRefs.current[remoteId]) {
             const videoElement = videoRefs.current[remoteId];
             
-            videoElement.srcObject = remoteStream;
-            videoElement.playsInline = true;
-            // Звук включен для удаленных игроков
-            
-            // Применяем зеркалирование к удаленному видео, если оно включено у этого игрока
-            // Находим информацию об игроке из списка players
-            const remotePlayer = players.find(p => p.id === remoteId);
-            if (remotePlayer && remotePlayer.mirrorCamera) {
-              videoElement.style.transform = 'scaleX(-1)';
+            // Создаем поток только с видео треками (без аудио)
+            const videoTracks = remoteStream.getVideoTracks();
+            if (videoTracks.length > 0) {
+              const videoOnlyStream = new MediaStream(videoTracks);
+              videoElement.srcObject = videoOnlyStream;
+              videoElement.playsInline = true;
+              videoElement.muted = true; // Мутим, так как аудио нет
+              
+              // Применяем зеркалирование к удаленному видео, если оно включено у этого игрока
+              const remotePlayer = players.find(p => p.id === remoteId);
+              if (remotePlayer && remotePlayer.mirrorCamera) {
+                videoElement.style.transform = 'scaleX(-1)';
+              } else {
+                videoElement.style.transform = 'none';
+              }
+              
+              videoElement.play().then(() => {
+                console.log(`✅ Видео воспроизводится для ${remoteId} (без звука)`);
+              }).catch(err => {
+                console.warn(`⚠️ Автоплей заблокирован для ${remoteId}:`, err);
+              });
             }
-            
-            videoElement.play().then(() => {
-              console.log(`✅ Видео и аудио воспроизводятся для ${remoteId}`);
-            }).catch(err => {
-              console.warn(`⚠️ Автоплей заблокирован для ${remoteId}:`, err);
-            });
           }
         }, 100);
       }
@@ -345,41 +339,35 @@ export const Lobby = ({ ws, playerId, players }) => {
       setTimeout(async () => {
         try {
           const offer = await pc.createOffer({
-            offerToReceiveAudio: true,
+            offerToReceiveAudio: false, // Аудио отключено
             offerToReceiveVideo: true
           });
           
-          // ⚡ ОПТИМИЗАЦИЯ ДЛЯ 8 ИГРОКОВ: Устанавливаем ограничения битрейта перед setLocalDescription
+          // ⚡ ВЫСОКИЕ НАСТРОЙКИ КАЧЕСТВА: Устанавливаем битрейт только для видео
           try {
             const senders = pc.getSenders();
             for (const sender of senders) {
-              if (sender.track) {
-                if (sender.track.kind === 'video') {
-                  const params = sender.getParameters();
-                  // Пытаемся включить Simulcast
-                  try {
-                    params.encodings = [
-                      { rid: 'high', active: true, maxBitrate: 350000, scaleResolutionDownBy: 1, maxFramerate: 20 },
-                      { rid: 'medium', active: true, maxBitrate: 200000, scaleResolutionDownBy: 2, maxFramerate: 15 },
-                      { rid: 'low', active: true, maxBitrate: 100000, scaleResolutionDownBy: 4, maxFramerate: 10 }
-                    ];
-                    await sender.setParameters(params);
-                  } catch (e) {
-                    // Fallback: один поток с низким битрейтом
-                    if (!params.encodings || params.encodings.length === 0) {
-                      params.encodings = [{}];
-                    }
-                    params.encodings[0].maxBitrate = 300000; // 300 kbps для видео (было 500)
-                    params.encodings[0].maxFramerate = 20;
-                    await sender.setParameters(params);
+              if (sender.track && sender.track.kind === 'video') {
+                const params = sender.getParameters();
+                // Пытаемся включить Simulcast с высоким качеством
+                try {
+                  params.encodings = [
+                    { rid: 'high', active: true, maxBitrate: 2000000, scaleResolutionDownBy: 1, maxFramerate: 30 },
+                    { rid: 'medium', active: true, maxBitrate: 1000000, scaleResolutionDownBy: 2, maxFramerate: 24 },
+                    { rid: 'low', active: true, maxBitrate: 500000, scaleResolutionDownBy: 4, maxFramerate: 15 }
+                  ];
+                  await sender.setParameters(params);
+                } catch (e) {
+                  // Fallback: один поток с высоким битрейтом
+                  if (!params.encodings || params.encodings.length === 0) {
+                    params.encodings = [{}];
                   }
-                } else if (sender.track.kind === 'audio') {
-                  const params = sender.getParameters();
-                  if (!params.encodings) params.encodings = [{}];
-                  params.encodings[0].maxBitrate = 24000; // 24 kbps для аудио (было 32)
+                  params.encodings[0].maxBitrate = 2000000; // 2 Mbps для видео - высокое качество
+                  params.encodings[0].maxFramerate = 30;
                   await sender.setParameters(params);
                 }
               }
+              // Аудио треки пропускаем
             }
           } catch (e) {
             console.warn('Не удалось установить ограничения битрейта:', e);
