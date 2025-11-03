@@ -212,47 +212,79 @@ export const Lobby = ({ ws, playerId, players }) => {
         const sender = pc.addTrack(track, localStream);
         
         // ⚡ ОПТИМИЗАЦИЯ ДЛЯ 8 ИГРОКОВ: Приоритизируем аудио, снижаем битрейт видео
-        if (track.kind === 'audio') {
+        // Пытаемся установить параметры только один раз после добавления трека
+        try {
           const params = sender.getParameters();
-          if (!params.encodings) params.encodings = [{}];
-          params.encodings[0].priority = 'high';
-          params.encodings[0].maxBitrate = 24000; // 24 kbps для аудио (было 32)
-          try {
-            await sender.setParameters(params);
-          } catch (e) {
-            console.warn('Не удалось установить параметры аудио:', e);
-          }
-        } else if (track.kind === 'video') {
-          // Проверяем поддержку Simulcast для адаптивного качества
-          const params = sender.getParameters();
-          if (!params.encodings || params.encodings.length === 0) {
-            params.encodings = [{}];
-          }
           
-          // Пытаемся включить Simulcast (3 уровня качества)
-          try {
-            params.encodings = [
-              { rid: 'high', active: true, maxBitrate: 350000, scaleResolutionDownBy: 1, maxFramerate: 20 },
-              { rid: 'medium', active: true, maxBitrate: 200000, scaleResolutionDownBy: 2, maxFramerate: 15 },
-              { rid: 'low', active: true, maxBitrate: 100000, scaleResolutionDownBy: 4, maxFramerate: 10 }
-            ];
-            await sender.setParameters(params);
-            console.log(`✅ Simulcast включен для ${remoteId}`);
-          } catch (e) {
-            // Если Simulcast не поддерживается, используем один поток с низким битрейтом
-            console.log(`⚠️ Simulcast не поддерживается, используем один поток для ${remoteId}`);
-            params.encodings = [{
-              priority: 'low',
-              maxBitrate: 300000, // 300 kbps максимум (было 500)
-              maxFramerate: 20,
-              scaleResolutionDownBy: 1
-            }];
-            try {
+          if (track.kind === 'audio') {
+            // Для аудио устанавливаем приоритет и битрейт
+            if (!params.encodings || params.encodings.length === 0) {
+              params.encodings = [{}];
+            }
+            const encoding = params.encodings[0];
+            if (encoding) {
+              // Создаем новый объект encodings без изменения read-only полей
+              const newEncoding = { ...encoding };
+              if ('priority' in encoding || encoding.priority === undefined) {
+                newEncoding.priority = 'high';
+              }
+              if ('maxBitrate' in encoding || encoding.maxBitrate === undefined || encoding.maxBitrate === null) {
+                newEncoding.maxBitrate = 24000; // 24 kbps для аудио
+              }
+              params.encodings = [newEncoding];
               await sender.setParameters(params);
-            } catch (err) {
-              console.warn('Не удалось установить параметры видео:', err);
+            }
+          } else if (track.kind === 'video') {
+            // Для видео пробуем Simulcast или устанавливаем битрейт
+            if (!params.encodings || params.encodings.length === 0) {
+              // Пытаемся включить Simulcast (только если encodings пустой)
+              try {
+                params.encodings = [
+                  { rid: 'high', active: true, maxBitrate: 350000, scaleResolutionDownBy: 1, maxFramerate: 20 },
+                  { rid: 'medium', active: true, maxBitrate: 200000, scaleResolutionDownBy: 2, maxFramerate: 15 },
+                  { rid: 'low', active: true, maxBitrate: 100000, scaleResolutionDownBy: 4, maxFramerate: 10 }
+                ];
+                await sender.setParameters(params);
+                console.log(`✅ Simulcast включен для ${remoteId}`);
+              } catch (simulcastError) {
+                // Если Simulcast не поддерживается, используем один поток
+                console.log(`⚠️ Simulcast не поддерживается, используем один поток для ${remoteId}`);
+                const fallbackParams = sender.getParameters();
+                if (!fallbackParams.encodings || fallbackParams.encodings.length === 0) {
+                  fallbackParams.encodings = [{}];
+                }
+                const encoding = fallbackParams.encodings[0];
+                if (encoding) {
+                  const newEncoding = { ...encoding };
+                  if ('maxBitrate' in encoding || encoding.maxBitrate === undefined || encoding.maxBitrate === null) {
+                    newEncoding.maxBitrate = 300000; // 300 kbps максимум
+                  }
+                  if ('maxFramerate' in encoding || encoding.maxFramerate === undefined || encoding.maxFramerate === null) {
+                    newEncoding.maxFramerate = 20;
+                  }
+                  fallbackParams.encodings = [newEncoding];
+                  await sender.setParameters(fallbackParams);
+                }
+              }
+            } else {
+              // Если encodings уже установлен, пробуем обновить только битрейт
+              try {
+                const encoding = params.encodings[0];
+                if (encoding && ('maxBitrate' in encoding || encoding.maxBitrate === undefined || encoding.maxBitrate === null)) {
+                  const newEncoding = { ...encoding };
+                  newEncoding.maxBitrate = 300000;
+                  params.encodings[0] = newEncoding;
+                  await sender.setParameters(params);
+                }
+              } catch (updateError) {
+                // Игнорируем ошибки при обновлении read-only параметров
+                console.log(`⚠️ Параметры видео read-only, пропускаем обновление для ${remoteId}`);
+              }
             }
           }
+        } catch (e) {
+          // Игнорируем ошибки установки параметров - они не критичны
+          console.log(`⚠️ Не удалось установить параметры ${track.kind} для ${remoteId}:`, e.message);
         }
       }
     }
@@ -696,16 +728,19 @@ export const Lobby = ({ ws, playerId, players }) => {
               await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
               
               // Применяем накопленные ICE кандидаты
-              if (iceCandidatesQueue.current[data.fromId]) {
+              if (iceCandidatesQueue.current[data.fromId] && iceCandidatesQueue.current[data.fromId].length > 0) {
                 console.log(`🧊 Применяем ${iceCandidatesQueue.current[data.fromId].length} накопленных ICE кандидатов для ${data.fromId}`);
-                for (const candidate of iceCandidatesQueue.current[data.fromId]) {
+                const candidatesToApply = [...iceCandidatesQueue.current[data.fromId]];
+                iceCandidatesQueue.current[data.fromId] = []; // Очищаем очередь сразу
+                
+                for (const candidate of candidatesToApply) {
                   try {
                     await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                    console.log(`✅ ICE кандидат применен для ${data.fromId}`);
                   } catch (err) {
-                    console.warn(`⚠️ Ошибка применения ICE кандидата:`, err);
+                    console.warn(`⚠️ Ошибка применения ICE кандидата для ${data.fromId}:`, err);
                   }
                 }
-                iceCandidatesQueue.current[data.fromId] = [];
               }
               
             } else if (data.signal.type === "ice-candidate" && data.signal.candidate) {
