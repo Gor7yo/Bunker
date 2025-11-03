@@ -41,7 +41,6 @@ export const Lobby = ({ ws, playerId, players }) => {
   const videoRefs = useRef({});
   const isInitialized = useRef(false);
   const streamLockRef = useRef(false); // Защита от дублирования потоков
-  const iceCandidatesQueue = useRef({}); // Буфер для ICE кандидатов до установки remote description
 
   // =========================
   // 📹 Инициализация локальной камеры (УПРОЩЕННАЯ)
@@ -61,12 +60,12 @@ export const Lobby = ({ ws, playerId, players }) => {
         
         console.log("🎥 Запуск инициализации камеры в Lobby...");
         
-        // ⚡ СРЕДНИЕ НАСТРОЙКИ КАЧЕСТВА: умеренное разрешение и битрейт
+        // ⚡ ОПТИМИЗИРОВАННЫЕ НАСТРОЙКИ ДЛЯ 8 ИГРОКОВ: минимальное разрешение и FPS
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
-            width: { ideal: 320, max: 480 }, 
-            height: { ideal: 240, max: 360 },
-            frameRate: { ideal: 15, max: 20 }, // Среднее качество - 15 fps
+            width: { ideal: 480, max: 640 }, 
+            height: { ideal: 360, max: 480 },
+            frameRate: { ideal: 20, max: 24 }, // Снижаем до 20 fps для экономии ресурсов
             aspectRatio: { ideal: 4/3 },
             facingMode: 'user'
           },
@@ -74,9 +73,9 @@ export const Lobby = ({ ws, playerId, players }) => {
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
-            sampleRate: { ideal: 16000 }, // Среднее качество аудио
+            sampleRate: { ideal: 16000 }, // Снижаем качество аудио для экономии трафика
             channelCount: { ideal: 1 }, // Моно вместо стерео
-            bitrate: { ideal: 20000, max: 24000 } // Средний битрейт аудио
+            bitrate: { ideal: 24000, max: 32000 } // Ограничиваем битрейт аудио
           }
         });
         
@@ -154,14 +153,9 @@ export const Lobby = ({ ws, playerId, players }) => {
     Object.keys(peersRef.current).forEach(peerId => {
       if (!players.find(p => p.id === peerId)) {
         console.log(`🗑️ Закрываем соединение с ${peerId}`);
-        try {
-          peersRef.current[peerId].close();
-        } catch (e) {
-          console.warn('Ошибка при закрытии соединения:', e);
-        }
+        peersRef.current[peerId].close();
         delete peersRef.current[peerId];
         delete videoRefs.current[peerId];
-        delete iceCandidatesQueue.current[peerId]; // Очищаем очередь ICE кандидатов
       }
     });
   }, [players, localStream, ws, playerId]);
@@ -170,19 +164,9 @@ export const Lobby = ({ ws, playerId, players }) => {
   // 🔗 Создание PeerConnection (ИСПРАВЛЕННОЕ)
   // =========================
   const createPeerConnection = async (remoteId) => {
-    // Двойная проверка для защиты от race condition
     if (peersRef.current[remoteId]) {
-      const existingPc = peersRef.current[remoteId];
-      // Проверяем, что соединение не закрыто
-      if (existingPc.connectionState !== 'closed' && existingPc.signalingState !== 'closed') {
-        console.log(`⚠️ Соединение с ${remoteId} уже существует (${existingPc.connectionState})`);
-        return existingPc;
-      } else {
-        // Если соединение закрыто, удаляем его
-        console.log(`🗑️ Удаляем закрытое соединение с ${remoteId}`);
-        delete peersRef.current[remoteId];
-        delete iceCandidatesQueue.current[remoteId];
-      }
+      console.log(`⚠️ Соединение с ${remoteId} уже существует`);
+      return peersRef.current[remoteId];
     }
 
     console.log(`🎯 Создаем RTCPeerConnection для ${remoteId}`);
@@ -212,82 +196,47 @@ export const Lobby = ({ ws, playerId, players }) => {
         const sender = pc.addTrack(track, localStream);
         
         // ⚡ ОПТИМИЗАЦИЯ ДЛЯ 8 ИГРОКОВ: Приоритизируем аудио, снижаем битрейт видео
-        // Пытаемся установить параметры только один раз после добавления трека
-        try {
+        if (track.kind === 'audio') {
           const params = sender.getParameters();
+          if (!params.encodings) params.encodings = [{}];
+          params.encodings[0].priority = 'high';
+          params.encodings[0].maxBitrate = 24000; // 24 kbps для аудио (было 32)
+          try {
+            await sender.setParameters(params);
+          } catch (e) {
+            console.warn('Не удалось установить параметры аудио:', e);
+          }
+        } else if (track.kind === 'video') {
+          // Проверяем поддержку Simulcast для адаптивного качества
+          const params = sender.getParameters();
+          if (!params.encodings || params.encodings.length === 0) {
+            params.encodings = [{}];
+          }
           
-          if (track.kind === 'audio') {
-            // Для аудио устанавливаем приоритет и битрейт
-            if (!params.encodings || params.encodings.length === 0) {
-              params.encodings = [{}];
-            }
-            const encoding = params.encodings[0];
-            if (encoding) {
-              // Создаем новый объект encodings без изменения read-only полей
-              const newEncoding = { ...encoding };
-              if ('priority' in encoding || encoding.priority === undefined) {
-                newEncoding.priority = 'high';
-              }
-              if ('maxBitrate' in encoding || encoding.maxBitrate === undefined || encoding.maxBitrate === null) {
-                newEncoding.maxBitrate = 24000; // 24 kbps для аудио
-              }
-              params.encodings = [newEncoding];
+          // Пытаемся включить Simulcast (3 уровня качества)
+          try {
+            params.encodings = [
+              { rid: 'high', active: true, maxBitrate: 350000, scaleResolutionDownBy: 1, maxFramerate: 20 },
+              { rid: 'medium', active: true, maxBitrate: 200000, scaleResolutionDownBy: 2, maxFramerate: 15 },
+              { rid: 'low', active: true, maxBitrate: 100000, scaleResolutionDownBy: 4, maxFramerate: 10 }
+            ];
+            await sender.setParameters(params);
+            console.log(`✅ Simulcast включен для ${remoteId}`);
+          } catch (e) {
+            // Если Simulcast не поддерживается, используем один поток с низким битрейтом
+            console.log(`⚠️ Simulcast не поддерживается, используем один поток для ${remoteId}`);
+            params.encodings = [{
+              priority: 'low',
+              maxBitrate: 300000, // 300 kbps максимум (было 500)
+              maxFramerate: 20,
+              scaleResolutionDownBy: 1
+            }];
+            try {
               await sender.setParameters(params);
-            }
-          } else if (track.kind === 'video') {
-            // Для видео пробуем Simulcast или устанавливаем битрейт
-            if (!params.encodings || params.encodings.length === 0) {
-              // Пытаемся включить Simulcast с средними битрейтами (только если encodings пустой)
-              try {
-                params.encodings = [
-                  { rid: 'high', active: true, maxBitrate: 180000, scaleResolutionDownBy: 1, maxFramerate: 15 },
-                  { rid: 'medium', active: true, maxBitrate: 120000, scaleResolutionDownBy: 2, maxFramerate: 12 },
-                  { rid: 'low', active: true, maxBitrate: 80000, scaleResolutionDownBy: 4, maxFramerate: 10 }
-                ];
-                await sender.setParameters(params);
-                console.log(`✅ Simulcast включен для ${remoteId} (среднее качество)`);
-              } catch (simulcastError) {
-                // Если Simulcast не поддерживается, используем один поток
-                console.log(`⚠️ Simulcast не поддерживается, используем один поток для ${remoteId}`);
-                const fallbackParams = sender.getParameters();
-                if (!fallbackParams.encodings || fallbackParams.encodings.length === 0) {
-                  fallbackParams.encodings = [{}];
-                }
-                const encoding = fallbackParams.encodings[0];
-                if (encoding) {
-                  const newEncoding = { ...encoding };
-                  if ('maxBitrate' in encoding || encoding.maxBitrate === undefined || encoding.maxBitrate === null) {
-                    newEncoding.maxBitrate = 150000; // 150 kbps - среднее качество
-                  }
-                  if ('maxFramerate' in encoding || encoding.maxFramerate === undefined || encoding.maxFramerate === null) {
-                    newEncoding.maxFramerate = 15; // 15 fps - среднее качество
-                  }
-                  fallbackParams.encodings = [newEncoding];
-                  await sender.setParameters(fallbackParams);
-                }
-              }
-            } else {
-              // Если encodings уже установлен, пробуем обновить только битрейт
-              try {
-                const encoding = params.encodings[0];
-                if (encoding && ('maxBitrate' in encoding || encoding.maxBitrate === undefined || encoding.maxBitrate === null)) {
-                  const newEncoding = { ...encoding };
-                  newEncoding.maxBitrate = 150000; // 150 kbps - среднее качество
-                  if ('maxFramerate' in encoding || encoding.maxFramerate === undefined || encoding.maxFramerate === null) {
-                    newEncoding.maxFramerate = 15; // 15 fps
-                  }
-                  params.encodings[0] = newEncoding;
-                  await sender.setParameters(params);
-                }
-              } catch (updateError) {
-                // Игнорируем ошибки при обновлении read-only параметров
-                console.log(`⚠️ Параметры видео read-only, пропускаем обновление для ${remoteId}`);
-              }
+            } catch (err) {
+              console.warn('Не удалось установить параметры видео:', err);
             }
           }
-        } catch (e) {
-          // Игнорируем ошибки установки параметров - они не критичны
-          console.log(`⚠️ Не удалось установить параметры ${track.kind} для ${remoteId}:`, e.message);
         }
       }
     }
@@ -299,234 +248,35 @@ export const Lobby = ({ ws, playerId, players }) => {
       if (event.streams && event.streams[0]) {
         const remoteStream = event.streams[0];
         
-        // Функция для обновления видео элемента
-        const updateVideoElement = () => {
+        // Создаем видео элемент если его нет
+        if (!videoRefs.current[remoteId]) {
+          console.log(`🎥 Создаем видео элемент для ${remoteId}`);
+          // Элемент будет создан в render
+        }
+        
+        // Ждем немного чтобы элемент успел создаться в DOM
+        setTimeout(() => {
           if (videoRefs.current[remoteId]) {
             const videoElement = videoRefs.current[remoteId];
             
-            // Получаем актуальные треки из потока
-            const videoTrack = remoteStream.getVideoTracks()[0];
-            const audioTrack = remoteStream.getAudioTracks()[0];
-            
-            // Если треки активны, создаем новый поток для принудительного обновления
-            if (videoTrack && videoTrack.readyState === 'live') {
-              const newStream = new MediaStream();
-              if (videoTrack) newStream.addTrack(videoTrack);
-              if (audioTrack) newStream.addTrack(audioTrack);
-              
-              // Принудительно обновляем srcObject новым потоком
-              videoElement.srcObject = newStream;
-            } else {
-              // Если треки неактивны, просто устанавливаем исходный поток
-              videoElement.srcObject = remoteStream;
-            }
-            
+            videoElement.srcObject = remoteStream;
             videoElement.playsInline = true;
-            videoElement.autoplay = true;
-            videoElement.muted = false;
+            // Звук включен для удаленных игроков
             
-            // Применяем зеркалирование
+            // Применяем зеркалирование к удаленному видео, если оно включено у этого игрока
+            // Находим информацию об игроке из списка players
             const remotePlayer = players.find(p => p.id === remoteId);
             if (remotePlayer && remotePlayer.mirrorCamera) {
               videoElement.style.transform = 'scaleX(-1)';
-            } else {
-              videoElement.style.transform = 'none';
             }
             
-            // Используем события для принудительного обновления
-            let lastVideoTime = 0;
-            let stuckFrameCount = 0;
-            
-            videoElement.onloadedmetadata = () => {
-              videoElement.play().catch(err => {
-                console.warn(`⚠️ Автоплей заблокирован для ${remoteId}:`, err);
-              });
-            };
-            
-            videoElement.onloadeddata = () => {
-              // Принудительное обновление при загрузке данных
-              if (videoElement.paused) {
-                videoElement.play().catch(console.warn);
-              }
-            };
-            
-            // Отслеживаем обновление времени видео для обнаружения застрявших кадров
-            videoElement.ontimeupdate = () => {
-              const currentTime = videoElement.currentTime;
-              if (currentTime === lastVideoTime && lastVideoTime > 0) {
-                stuckFrameCount++;
-                // Если время не меняется несколько раз подряд - видео застряло
-                if (stuckFrameCount > 10) {
-                  console.warn(`⚠️ Видео застряло для ${remoteId}, принудительно обновляем`);
-                  const newStream = new MediaStream(remoteStream.getTracks());
-                  videoElement.srcObject = newStream;
-                  stuckFrameCount = 0;
-                  videoElement.play().catch(console.warn);
-                }
-              } else {
-                stuckFrameCount = 0;
-                lastVideoTime = currentTime;
-                videoElement.lastUpdateTime = Date.now();
-              }
-            };
-            
-            // Новый API для обработки кадров (если доступен)
-            if ('requestVideoFrameCallback' in videoElement) {
-              let lastFrameTime = performance.now();
-              const frameCallback = (now, metadata) => {
-                // Проверяем, что кадры действительно обновляются
-                const timeSinceLastFrame = now - lastFrameTime;
-                if (timeSinceLastFrame > 2000) {
-                  // Кадры не обновлялись более 2 секунд
-                  console.warn(`⚠️ Кадры не обновлялись для ${remoteId}, принудительно обновляем`);
-                  const newStream = new MediaStream(remoteStream.getTracks());
-                  videoElement.srcObject = newStream;
-                  videoElement.play().catch(console.warn);
-                }
-                lastFrameTime = now;
-                
-                if (videoElement.paused) {
-                  videoElement.play().catch(console.warn);
-                }
-                videoElement.requestVideoFrameCallback(frameCallback);
-              };
-              videoElement.requestVideoFrameCallback(frameCallback);
-            }
-            
-            // Принудительно запускаем воспроизведение
             videoElement.play().then(() => {
               console.log(`✅ Видео и аудио воспроизводятся для ${remoteId}`);
             }).catch(err => {
               console.warn(`⚠️ Автоплей заблокирован для ${remoteId}:`, err);
-              setTimeout(() => {
-                videoElement.play().catch(console.warn);
-              }, 500);
             });
-          } else {
-            // Если элемента еще нет, ждем немного и пробуем снова
-            setTimeout(updateVideoElement, 100);
           }
-        };
-        
-        // Попытка обновить сразу
-        updateVideoElement();
-        
-        // Храним ссылку на поток для периодической проверки
-        const streamRef = { current: remoteStream };
-        
-        // Функция для принудительного обновления видео при необходимости
-        const ensureVideoPlaying = () => {
-          if (videoRefs.current[remoteId]) {
-            const videoElement = videoRefs.current[remoteId];
-            
-            // Проверяем состояние видео элемента
-            if (videoElement.paused || !videoElement.srcObject) {
-              console.log(`🔄 Принудительно обновляем видео для ${remoteId} (paused: ${videoElement.paused})`);
-              if (!videoElement.srcObject && streamRef.current) {
-                videoElement.srcObject = streamRef.current;
-              }
-              videoElement.play().catch(err => {
-                console.warn(`⚠️ Не удалось запустить видео для ${remoteId}:`, err);
-              });
-            }
-            
-            // Проверяем состояние треков
-            const videoTrack = streamRef.current?.getVideoTracks()[0];
-            if (videoTrack && videoTrack.readyState === 'live' && !videoTrack.muted) {
-              // Если трек живой, убеждаемся что видео воспроизводится
-              if (videoElement.paused) {
-                videoElement.play().catch(console.warn);
-              }
-            }
-          }
-        };
-        
-        // Периодическая проверка и обновление видео (каждую секунду для более частого обновления)
-        const videoCheckInterval = setInterval(() => {
-          ensureVideoPlaying();
-          
-          // Дополнительно проверяем и принудительно обновляем поток если нужно
-          const videoTrack = streamRef.current?.getVideoTracks()[0];
-          if (videoTrack && videoTrack.readyState === 'live' && videoRefs.current[remoteId]) {
-            const videoElement = videoRefs.current[remoteId];
-            // Проверяем, что элемент действительно показывает живые кадры
-            if (videoElement.readyState >= 2 && videoElement.srcObject) {
-              // Если видео загружено, но может быть застряло - принудительно обновляем
-              const currentTime = videoElement.currentTime;
-              // Если время не меняется более 2 секунд, обновляем
-              if (videoElement.readyState >= 2 && Date.now() - (videoElement.lastUpdateTime || 0) > 2000) {
-                console.log(`🔄 Принудительное обновление видео для ${remoteId} (кадры могут застрять)`);
-                const newStream = new MediaStream(streamRef.current.getTracks());
-                videoElement.srcObject = newStream;
-                videoElement.lastUpdateTime = Date.now();
-                videoElement.play().catch(console.warn);
-              }
-              if (!videoElement.lastUpdateTime) {
-                videoElement.lastUpdateTime = Date.now();
-              }
-            }
-          }
-        }, 1000);
-        
-        // Останавливаем проверку при закрытии соединения
-        pc.addEventListener('connectionstatechange', () => {
-          if (pc.connectionState === 'closed' || pc.connectionState === 'disconnected') {
-            clearInterval(videoCheckInterval);
-          }
-        });
-        
-        // Также слушаем изменения треков в потоке
-        remoteStream.getTracks().forEach(track => {
-          track.onended = () => {
-            console.log(`⚠️ Трек ${track.kind} завершен для ${remoteId}, обновляем поток`);
-            clearInterval(videoCheckInterval);
-            updateVideoElement();
-          };
-          
-          // Обработка изменений состояния трека
-          track.onmute = () => {
-            console.log(`⚠️ Трек ${track.kind} заглушен для ${remoteId}`);
-            // Не обновляем видео при mute, только логируем
-          };
-          
-          track.onunmute = () => {
-            console.log(`✅ Трек ${track.kind} разглушен для ${remoteId}, обновляем поток`);
-            // Задержка для стабильности
-            setTimeout(() => {
-              updateVideoElement();
-              ensureVideoPlaying();
-            }, 100);
-          };
-          
-          // Слушаем изменения состояния готовности трека
-          if (track.kind === 'video') {
-            // Дополнительная проверка при изменении readyState
-            const checkTrack = () => {
-              if (track.readyState === 'live') {
-                ensureVideoPlaying();
-              }
-            };
-            // Проверяем периодически состояние трека
-            const trackCheckInterval = setInterval(checkTrack, 1000);
-            
-            track.onended = () => {
-              clearInterval(trackCheckInterval);
-              clearInterval(videoCheckInterval);
-            };
-          }
-        });
-        
-        // Также слушаем события добавления/удаления треков из потока
-        remoteStream.onaddtrack = (event) => {
-          console.log(`➕ Добавлен трек ${event.track.kind} для ${remoteId}`);
-          updateVideoElement();
-          ensureVideoPlaying();
-        };
-        
-        remoteStream.onremovetrack = (event) => {
-          console.log(`➖ Удален трек ${event.track.kind} для ${remoteId}`);
-          updateVideoElement();
-        };
+        }, 100);
       }
     };
 
@@ -673,12 +423,19 @@ export const Lobby = ({ ws, playerId, players }) => {
 
         if (data.type === "game_started") {
           console.log("🎮 Игра началась!");
+          // Показываем экран "Подключение..." когда игра начинается
+          setShowConnectionOverlay(true);
+        } else if (data.type === "game_ready") {
+          console.log("✅ Игра готова, скрываем экран подключения");
+          // Скрываем экран "Подключение..." когда админ нажал "Начать"
+          setShowConnectionOverlay(false);
         } else if (data.type === "game_reset") {
           console.log("🔄 Игра сброшена администратором");
           setGameStartTime(null);
           setElapsedTime(0);
           setCurrentRound(0);
           setHighlightedPlayerId(null); // Сбрасываем зеленую рамку при сбросе игры
+          // Не скрываем оверлей при сбросе, он появится автоматически когда игра снова начнется
         } else if (data.type === "round_changed") {
           console.log(`🔄 Раунд изменен на: ${data.round}`);
           setCurrentRound(data.round);
@@ -781,9 +538,21 @@ export const Lobby = ({ ws, playerId, players }) => {
           if (data.gameStartTime && data.gameStarted) {
             setGameStartTime(data.gameStartTime);
             setElapsedTime(data.gameElapsedTime || 0);
+            // Если игра началась, но еще не готова - показываем экран подключения
+            if (!data.gameReady) {
+              setShowConnectionOverlay(true);
+            } else {
+              setShowConnectionOverlay(false);
+            }
           } else if (!data.gameStarted) {
             setGameStartTime(null);
             setElapsedTime(0);
+            setShowConnectionOverlay(false);
+          } else {
+            // Дополнительная проверка готовности, если игра началась
+            if (data.gameReady) {
+              setShowConnectionOverlay(false);
+            }
           }
           
           // Обновляем информацию о раундах
@@ -846,29 +615,12 @@ export const Lobby = ({ ws, playerId, players }) => {
           if (!pc) {
             console.log(`🔗 Создаем новое соединение для входящего сигнала от ${data.fromId}`);
             pc = await createPeerConnection(data.fromId);
-            // Инициализируем очередь для ICE кандидатов для этого соединения
-            if (!iceCandidatesQueue.current[data.fromId]) {
-              iceCandidatesQueue.current[data.fromId] = [];
-            }
           }
 
           try {
             if (data.signal.type === "offer") {
               console.log(`📥 Получен offer от ${data.fromId}`);
               await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
-              
-              // Применяем накопленные ICE кандидаты
-              if (iceCandidatesQueue.current[data.fromId]) {
-                console.log(`🧊 Применяем ${iceCandidatesQueue.current[data.fromId].length} накопленных ICE кандидатов для ${data.fromId}`);
-                for (const candidate of iceCandidatesQueue.current[data.fromId]) {
-                  try {
-                    await pc.addIceCandidate(new RTCIceCandidate(candidate));
-                  } catch (err) {
-                    console.warn(`⚠️ Ошибка применения ICE кандидата:`, err);
-                  }
-                }
-                iceCandidatesQueue.current[data.fromId] = [];
-              }
               
               const answer = await pc.createAnswer();
               await pc.setLocalDescription(answer);
@@ -885,41 +637,9 @@ export const Lobby = ({ ws, playerId, players }) => {
               console.log(`📥 Получен answer от ${data.fromId}`);
               await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
               
-              // Применяем накопленные ICE кандидаты
-              if (iceCandidatesQueue.current[data.fromId] && iceCandidatesQueue.current[data.fromId].length > 0) {
-                console.log(`🧊 Применяем ${iceCandidatesQueue.current[data.fromId].length} накопленных ICE кандидатов для ${data.fromId}`);
-                const candidatesToApply = [...iceCandidatesQueue.current[data.fromId]];
-                iceCandidatesQueue.current[data.fromId] = []; // Очищаем очередь сразу
-                
-                for (const candidate of candidatesToApply) {
-                  try {
-                    await pc.addIceCandidate(new RTCIceCandidate(candidate));
-                    console.log(`✅ ICE кандидат применен для ${data.fromId}`);
-                  } catch (err) {
-                    console.warn(`⚠️ Ошибка применения ICE кандидата для ${data.fromId}:`, err);
-                  }
-                }
-              }
-              
             } else if (data.signal.type === "ice-candidate" && data.signal.candidate) {
               console.log(`🧊 Получен ICE кандидат от ${data.fromId}`);
-              
-              // Проверяем, установлен ли remote description
-              if (pc.remoteDescription) {
-                // Если установлен - применяем сразу
-                try {
-                  await pc.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
-                } catch (error) {
-                  console.warn(`⚠️ Ошибка добавления ICE кандидата для ${data.fromId}:`, error);
-                }
-              } else {
-                // Если не установлен - сохраняем в очередь
-                if (!iceCandidatesQueue.current[data.fromId]) {
-                  iceCandidatesQueue.current[data.fromId] = [];
-                }
-                iceCandidatesQueue.current[data.fromId].push(data.signal.candidate);
-                console.log(`💾 ICE кандидат сохранен в очередь для ${data.fromId} (в очереди: ${iceCandidatesQueue.current[data.fromId].length})`);
-              }
+              await pc.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
             }
           } catch (error) {
             console.error(`❌ Ошибка обработки сигнала от ${data.fromId}:`, error);
@@ -982,26 +702,18 @@ export const Lobby = ({ ws, playerId, players }) => {
   }, [mirrorCamera, playerId]);
 
   // =========================
-  // 🔄 Применение зеркалирования и обновление потоков при изменении players
+  // 🔄 Применение зеркалирования ко всем видео элементам при изменении players
   // =========================
   useEffect(() => {
     players.forEach(player => {
       if (videoRefs.current[player.id]) {
         const videoElement = videoRefs.current[player.id];
-        
         // Для локального игрока используем настройки из контекста
         if (player.id === playerId) {
           if (mirrorCamera) {
             videoElement.style.transform = 'scaleX(-1)';
           } else {
             videoElement.style.transform = 'none';
-          }
-          
-          // Убеждаемся, что локальный поток подключен
-          if (localStream && videoElement.srcObject !== localStream) {
-            console.log(`🔄 Обновляем локальный поток для ${player.id}`);
-            videoElement.srcObject = localStream;
-            videoElement.play().catch(console.warn);
           }
         } else {
           // Для удаленных игроков используем данные от сервера
@@ -1010,64 +722,10 @@ export const Lobby = ({ ws, playerId, players }) => {
           } else {
             videoElement.style.transform = 'none';
           }
-          
-          // Проверяем и обновляем удаленный поток
-          const pc = peersRef.current[player.id];
-          if (pc) {
-            // Получаем текущий поток из соединения
-            const receivers = pc.getReceivers();
-            receivers.forEach(receiver => {
-              if (receiver.track && receiver.track.kind === 'video') {
-                const remoteStream = new MediaStream([receiver.track]);
-                // Если поток изменился, обновляем
-                if (!videoElement.srcObject || 
-                    (videoElement.srcObject instanceof MediaStream && 
-                     !videoElement.srcObject.getTracks().some(t => t.id === receiver.track.id))) {
-                  console.log(`🔄 Обновляем удаленный поток для ${player.id}`);
-                  videoElement.srcObject = remoteStream;
-                  videoElement.play().catch(console.warn);
-                }
-              }
-            });
-            
-            // Также проверяем streams из connection - используем оригинальный поток из ontrack
-            if (pc.getReceivers && pc.getReceivers().length > 0) {
-              const receivers = pc.getReceivers();
-              const videoReceiver = receivers.find(r => r.track && r.track.kind === 'video');
-              
-              if (videoReceiver && videoReceiver.track && videoReceiver.track.readyState === 'live') {
-                // Создаем поток только если его еще нет или если текущий неактивен
-                const currentStream = videoElement.srcObject;
-                const needsUpdate = !currentStream || 
-                  (currentStream instanceof MediaStream && 
-                   (!currentStream.getVideoTracks().length || 
-                    !currentStream.getVideoTracks().some(t => t.readyState === 'live')));
-                
-                if (needsUpdate) {
-                  console.log(`🔄 Принудительно обновляем поток для ${player.id}`);
-                  const newStream = new MediaStream([videoReceiver.track]);
-                  // Добавляем аудио трек, если есть
-                  const audioReceiver = receivers.find(r => r.track && r.track.kind === 'audio');
-                  if (audioReceiver && audioReceiver.track) {
-                    newStream.addTrack(audioReceiver.track);
-                  }
-                  videoElement.srcObject = newStream;
-                  videoElement.play().catch(console.warn);
-                }
-              }
-            }
-          }
-          
-          // Принудительное обновление воспроизведения
-          if (videoElement.paused && videoElement.srcObject) {
-            videoElement.play().catch(err => {
-              console.warn(`⚠️ Не удалось запустить видео для ${player.id}:`, err);
-            });
-          }
         }
       }
     });
-  }, [players, mirrorCamera, playerId, localStream]);
+  }, [players, mirrorCamera, playerId]);
 
   // =========================
   // 🧹 Очистка
@@ -1077,18 +735,9 @@ export const Lobby = ({ ws, playerId, players }) => {
       console.log("🧹 Очистка WebRTC соединений");
       Object.values(peersRef.current).forEach(pc => {
         if (pc && pc.connectionState !== 'closed') {
-          try {
-            pc.close();
-          } catch (e) {
-            console.warn('Ошибка при закрытии соединения:', e);
-          }
+          pc.close();
         }
       });
-      
-      // Очищаем все ссылки
-      peersRef.current = {};
-      videoRefs.current = {};
-      iceCandidatesQueue.current = {};
       
       if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
@@ -1278,6 +927,16 @@ export const Lobby = ({ ws, playerId, players }) => {
   };
 
   const isHost = players.find(p => p.id === playerId)?.role === "host";
+
+  // Функция для нажатия кнопки "Начать" (только для админа)
+  const handleStartGame = () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'game_ready'
+      }));
+      console.log("✅ Админ нажал 'Начать', отправляем на сервер");
+    }
+  };
 
   // Функция для установки количества раундов
   const handleSetTotalRounds = (rounds) => {
@@ -1738,6 +1397,14 @@ export const Lobby = ({ ws, playerId, players }) => {
         </div>
       )}
 
+      {/* Overlay с надписью "Подключение..." */}
+      {showConnectionOverlay && !isHost && (
+        <div className="connection-overlay">
+          <div className="connection-text">Подключение...</div>
+          
+        </div>
+      )}
+
       <div className="controls-panel">
         <button 
           onClick={toggleCamera}
@@ -1753,6 +1420,16 @@ export const Lobby = ({ ws, playerId, players }) => {
             className="control-btn my-characteristics-btn"
           >
             🎴 Мои карты
+          </button>
+        )}
+        
+        {/* Кнопка "Начать" для админа (только когда игра началась, но еще не готова) */}
+        {isHost && showConnectionOverlay && (
+          <button 
+            onClick={handleStartGame}
+            className="control-btn start-game-btn"
+          >
+            Начать
           </button>
         )}
         
