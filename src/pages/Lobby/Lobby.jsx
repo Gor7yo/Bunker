@@ -248,35 +248,75 @@ export const Lobby = ({ ws, playerId, players }) => {
       if (event.streams && event.streams[0]) {
         const remoteStream = event.streams[0];
         
-        // Создаем видео элемент если его нет
-        if (!videoRefs.current[remoteId]) {
-          console.log(`🎥 Создаем видео элемент для ${remoteId}`);
-          // Элемент будет создан в render
-        }
-        
-        // Ждем немного чтобы элемент успел создаться в DOM
-        setTimeout(() => {
+        // Функция для обновления видео элемента
+        const updateVideoElement = () => {
           if (videoRefs.current[remoteId]) {
             const videoElement = videoRefs.current[remoteId];
             
-            videoElement.srcObject = remoteStream;
+            // Проверяем, нужно ли обновить поток
+            if (videoElement.srcObject !== remoteStream) {
+              console.log(`🔄 Обновляем видео поток для ${remoteId}`);
+              videoElement.srcObject = remoteStream;
+            }
+            
             videoElement.playsInline = true;
-            // Звук включен для удаленных игроков
+            videoElement.autoplay = true;
             
             // Применяем зеркалирование к удаленному видео, если оно включено у этого игрока
-            // Находим информацию об игроке из списка players
             const remotePlayer = players.find(p => p.id === remoteId);
             if (remotePlayer && remotePlayer.mirrorCamera) {
               videoElement.style.transform = 'scaleX(-1)';
+            } else {
+              videoElement.style.transform = 'none';
             }
             
+            // Принудительно запускаем воспроизведение
             videoElement.play().then(() => {
               console.log(`✅ Видео и аудио воспроизводятся для ${remoteId}`);
             }).catch(err => {
               console.warn(`⚠️ Автоплей заблокирован для ${remoteId}:`, err);
+              // Повторная попытка через небольшое время
+              setTimeout(() => {
+                videoElement.play().catch(console.warn);
+              }, 500);
             });
+          } else {
+            // Если элемента еще нет, ждем немного и пробуем снова
+            setTimeout(updateVideoElement, 100);
           }
-        }, 100);
+        };
+        
+        // Попытка обновить сразу
+        updateVideoElement();
+        
+        // Также слушаем изменения треков в потоке
+        remoteStream.getTracks().forEach(track => {
+          track.onended = () => {
+            console.log(`⚠️ Трек ${track.kind} завершен для ${remoteId}, обновляем поток`);
+            updateVideoElement();
+          };
+          
+          // Обработка изменений состояния трека
+          track.onmute = () => {
+            console.log(`⚠️ Трек ${track.kind} заглушен для ${remoteId}`);
+          };
+          
+          track.onunmute = () => {
+            console.log(`✅ Трек ${track.kind} разглушен для ${remoteId}, обновляем поток`);
+            updateVideoElement();
+          };
+        });
+        
+        // Также слушаем события добавления/удаления треков из потока
+        remoteStream.onaddtrack = (event) => {
+          console.log(`➕ Добавлен трек ${event.track.kind} для ${remoteId}`);
+          updateVideoElement();
+        };
+        
+        remoteStream.onremovetrack = (event) => {
+          console.log(`➖ Удален трек ${event.track.kind} для ${remoteId}`);
+          updateVideoElement();
+        };
       }
     };
 
@@ -683,18 +723,26 @@ export const Lobby = ({ ws, playerId, players }) => {
   }, [mirrorCamera, playerId]);
 
   // =========================
-  // 🔄 Применение зеркалирования ко всем видео элементам при изменении players
+  // 🔄 Применение зеркалирования и обновление потоков при изменении players
   // =========================
   useEffect(() => {
     players.forEach(player => {
       if (videoRefs.current[player.id]) {
         const videoElement = videoRefs.current[player.id];
+        
         // Для локального игрока используем настройки из контекста
         if (player.id === playerId) {
           if (mirrorCamera) {
             videoElement.style.transform = 'scaleX(-1)';
           } else {
             videoElement.style.transform = 'none';
+          }
+          
+          // Убеждаемся, что локальный поток подключен
+          if (localStream && videoElement.srcObject !== localStream) {
+            console.log(`🔄 Обновляем локальный поток для ${player.id}`);
+            videoElement.srcObject = localStream;
+            videoElement.play().catch(console.warn);
           }
         } else {
           // Для удаленных игроков используем данные от сервера
@@ -703,10 +751,50 @@ export const Lobby = ({ ws, playerId, players }) => {
           } else {
             videoElement.style.transform = 'none';
           }
+          
+          // Проверяем и обновляем удаленный поток
+          const pc = peersRef.current[player.id];
+          if (pc) {
+            // Получаем текущий поток из соединения
+            const receivers = pc.getReceivers();
+            receivers.forEach(receiver => {
+              if (receiver.track && receiver.track.kind === 'video') {
+                const remoteStream = new MediaStream([receiver.track]);
+                // Если поток изменился, обновляем
+                if (!videoElement.srcObject || 
+                    (videoElement.srcObject instanceof MediaStream && 
+                     !videoElement.srcObject.getTracks().some(t => t.id === receiver.track.id))) {
+                  console.log(`🔄 Обновляем удаленный поток для ${player.id}`);
+                  videoElement.srcObject = remoteStream;
+                  videoElement.play().catch(console.warn);
+                }
+              }
+            });
+            
+            // Также проверяем streams из connection
+            pc.getTransceivers().forEach(transceiver => {
+              if (transceiver.receiver && transceiver.receiver.track) {
+                const track = transceiver.receiver.track;
+                if (track.kind === 'video' && track.readyState === 'live') {
+                  const stream = new MediaStream([track]);
+                  if (!videoElement.srcObject || videoElement.srcObject !== stream) {
+                    console.log(`🔄 Принудительно обновляем поток для ${player.id}`);
+                    videoElement.srcObject = stream;
+                    videoElement.play().catch(console.warn);
+                  }
+                }
+              }
+            });
+          }
+          
+          // Принудительное обновление воспроизведения
+          if (videoElement.paused) {
+            videoElement.play().catch(console.warn);
+          }
         }
       }
     });
-  }, [players, mirrorCamera, playerId]);
+  }, [players, mirrorCamera, playerId, localStream]);
 
   // =========================
   // 🧹 Очистка
