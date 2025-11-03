@@ -8,7 +8,6 @@ export const useWebRTC = (ws, playerId, players) => {
   const isInitialized = useRef(false);
   const streamLockRef = useRef(false);
 
-  // Инициализация локальной камеры
   useEffect(() => {
     if (streamLockRef.current || !playerId) return;
     
@@ -21,7 +20,7 @@ export const useWebRTC = (ws, playerId, players) => {
         
         if (!mounted) return;
         
-        console.log("🎥 Запуск инициализации камеры в Lobby...");
+        console.log("Запуск инициализации камеры");
         
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
@@ -40,7 +39,7 @@ export const useWebRTC = (ws, playerId, players) => {
           return;
         }
         
-        console.log("✅ Камера инициализирована в Lobby, треки:", {
+        console.log("Камера инициализирована, треки:", {
           video: stream.getVideoTracks().map(t => ({enabled: t.enabled, readyState: t.readyState}))
         });
         
@@ -52,12 +51,12 @@ export const useWebRTC = (ws, playerId, players) => {
           const videoElement = videoRefs.current[playerId];
           videoElement.srcObject = stream;
           await videoElement.play().catch(err => {
-            console.warn("⚠️ Автоплей заблокирован, но поток подключен:", err);
+            console.warn("Автоплей заблокирован:", err);
           });
         }
         
       } catch (err) {
-        console.error("❌ Ошибка доступа к камере в Lobby:", err);
+        console.error("Ошибка доступа к камере:", err);
         if (mounted) {
           setIsCameraOn(false);
           streamLockRef.current = false;
@@ -78,14 +77,13 @@ export const useWebRTC = (ws, playerId, players) => {
     };
   }, [playerId]);
 
-  // Создание PeerConnection
   const createPeerConnection = async (remoteId) => {
     if (peersRef.current[remoteId]) {
-      console.log(`⚠️ Соединение с ${remoteId} уже существует`);
+      console.log(`Соединение с ${remoteId} уже существует`);
       return peersRef.current[remoteId];
     }
 
-    console.log(`🎯 Создаем RTCPeerConnection для ${remoteId}`);
+    console.log(`Создаем RTCPeerConnection для ${remoteId}`);
     
     const pc = new RTCPeerConnection({
       iceServers: [
@@ -98,16 +96,14 @@ export const useWebRTC = (ws, playerId, players) => {
       iceCandidatePoolSize: 0
     });
 
-    // Добавляем только видео треки
     if (localStream) {
       const tracks = localStream.getTracks();
       for (const track of tracks) {
         if (track.kind === 'audio') {
-          console.log(`🔇 Пропускаем аудио трек для ${remoteId}`);
           continue;
         }
         
-        console.log(`📤 Добавляем локальный трек ${track.kind} для ${remoteId}`);
+        console.log(`Добавляем локальный трек ${track.kind} для ${remoteId}`);
         const sender = pc.addTrack(track, localStream);
         
         if (track.kind === 'video') {
@@ -123,9 +119,9 @@ export const useWebRTC = (ws, playerId, players) => {
               { rid: 'low', active: true, maxBitrate: 500000, scaleResolutionDownBy: 4, maxFramerate: 15 }
             ];
             await sender.setParameters(params);
-            console.log(`✅ Simulcast включен для ${remoteId} (высокое качество)`);
+            console.log(`Simulcast включен для ${remoteId}`);
           } catch (e) {
-            console.log(`⚠️ Simulcast не поддерживается, используем один поток для ${remoteId}`);
+            console.log(`Simulcast не поддерживается, используем один поток для ${remoteId}`);
             params.encodings = [{
               priority: 'high',
               maxBitrate: 2000000,
@@ -142,9 +138,8 @@ export const useWebRTC = (ws, playerId, players) => {
       }
     }
 
-    // Обработка входящих потоков
     pc.ontrack = (event) => {
-      console.log(`📹 Получен удаленный поток от ${remoteId}`, event.streams[0]);
+      console.log(`Получен удаленный поток от ${remoteId}`, event.streams[0]);
       
       if (event.streams && event.streams[0]) {
         const remoteStream = event.streams[0];
@@ -168,9 +163,9 @@ export const useWebRTC = (ws, playerId, players) => {
               }
               
               videoElement.play().then(() => {
-                console.log(`✅ Видео воспроизводится для ${remoteId} (без звука)`);
+                console.log(`Видео воспроизводится для ${remoteId}`);
               }).catch(err => {
-                console.warn(`⚠️ Автоплей заблокирован для ${remoteId}:`, err);
+                console.warn(`Автоплей заблокирован для ${remoteId}:`, err);
               });
             }
           }
@@ -178,10 +173,9 @@ export const useWebRTC = (ws, playerId, players) => {
       }
     };
 
-    // ICE кандидаты
     pc.onicecandidate = (event) => {
       if (event.candidate && ws) {
-        console.log(`🧊 Отправляем ICE кандидат для ${remoteId}`);
+        console.log(`Отправляем ICE кандидат для ${remoteId}`);
         ws.send(JSON.stringify({
           type: "signal",
           targetId: remoteId,
@@ -193,13 +187,12 @@ export const useWebRTC = (ws, playerId, players) => {
       }
     };
 
-    // Мониторинг состояния
     pc.onconnectionstatechange = () => {
       const state = pc.connectionState;
-      console.log(`🔗 ${remoteId}: состояние ${state}`);
+      console.log(`${remoteId}: состояние ${state}`);
       
       if (state === 'failed' || state === 'disconnected') {
-        console.warn(`⚠️ Соединение с ${remoteId} потеряно, переподключаемся...`);
+        console.warn(`Соединение с ${remoteId} потеряно, переподключаемся`);
         
         try {
           pc.close();
@@ -211,7 +204,7 @@ export const useWebRTC = (ws, playerId, players) => {
         
         setTimeout(async () => {
           if (localStream && ws && players.find(p => p.id === remoteId)) {
-            console.log(`🔄 Переподключаемся к ${remoteId}...`);
+            console.log(`Переподключаемся к ${remoteId}`);
             await createPeerConnection(remoteId);
           }
         }, 3000);
@@ -220,10 +213,10 @@ export const useWebRTC = (ws, playerId, players) => {
 
     pc.oniceconnectionstatechange = () => {
       const state = pc.iceConnectionState;
-      console.log(`🧊 ${remoteId}: ICE состояние ${state}`);
+      console.log(`${remoteId}: ICE состояние ${state}`);
       
       if (state === 'failed') {
-        console.warn(`⚠️ ICE соединение с ${remoteId} не удалось, перезапускаем ICE...`);
+        console.warn(`ICE соединение с ${remoteId} не удалось, перезапускаем`);
         try {
           pc.restartIce();
         } catch (e) {
@@ -232,9 +225,8 @@ export const useWebRTC = (ws, playerId, players) => {
       }
     };
 
-    // Инициируем соединение
     if (remoteId > playerId) {
-      console.log(`🚀 Инициируем offer для ${remoteId}`);
+      console.log(`Инициируем offer для ${remoteId}`);
       
       setTimeout(async () => {
         try {
@@ -277,9 +269,9 @@ export const useWebRTC = (ws, playerId, players) => {
             signal: offer
           }));
           
-          console.log(`📤 Offer отправлен для ${remoteId}`);
+          console.log(`Offer отправлен для ${remoteId}`);
         } catch (error) {
-          console.error(`❌ Ошибка создания offer для ${remoteId}:`, error);
+          console.error(`Ошибка создания offer для ${remoteId}:`, error);
         }
       }, 1000);
     }
@@ -288,25 +280,23 @@ export const useWebRTC = (ws, playerId, players) => {
     return pc;
   };
 
-  // Управление соединениями
   useEffect(() => {
     if (!ws || !localStream) {
-      console.log("⏳ Ожидаем WebSocket и локальный поток...");
       return;
     }
 
-    console.log("🔄 Обновление WebRTC соединений. Игроков:", players.length);
+    console.log("Обновление WebRTC соединений, игроков:", players.length);
     
     players.forEach(player => {
       if (player.id !== playerId && !peersRef.current[player.id]) {
-        console.log(`🔗 Создаем соединение с ${player.name} (${player.id})`);
+        console.log(`Создаем соединение с ${player.name}`);
         createPeerConnection(player.id);
       }
     });
 
     Object.keys(peersRef.current).forEach(peerId => {
       if (!players.find(p => p.id === peerId)) {
-        console.log(`🗑️ Закрываем соединение с ${peerId}`);
+        console.log(`Закрываем соединение с ${peerId}`);
         peersRef.current[peerId].close();
         delete peersRef.current[peerId];
         delete videoRefs.current[peerId];
@@ -314,23 +304,22 @@ export const useWebRTC = (ws, playerId, players) => {
     });
   }, [players, localStream, ws, playerId, createPeerConnection]);
 
-  // Обработка WebRTC сигналов
   useEffect(() => {
     if (!ws) return;
 
     const handleSignal = async (data) => {
       if (data.type === "signal" && data.fromId && data.signal) {
-        console.log(`📡 Сигнал от ${data.fromId}: ${data.signal.type}`);
+        console.log(`Сигнал от ${data.fromId}: ${data.signal.type}`);
         
         let pc = peersRef.current[data.fromId];
         if (!pc) {
-          console.log(`🔗 Создаем новое соединение для входящего сигнала от ${data.fromId}`);
+          console.log(`Создаем новое соединение для сигнала от ${data.fromId}`);
           pc = await createPeerConnection(data.fromId);
         }
 
         try {
           if (data.signal.type === "offer") {
-            console.log(`📥 Получен offer от ${data.fromId}`);
+            console.log(`Получен offer от ${data.fromId}`);
             await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
             
             const answer = await pc.createAnswer();
@@ -342,23 +331,22 @@ export const useWebRTC = (ws, playerId, players) => {
               signal: answer
             }));
             
-            console.log(`📤 Answer отправлен для ${data.fromId}`);
+            console.log(`Answer отправлен для ${data.fromId}`);
             
           } else if (data.signal.type === "answer") {
-            console.log(`📥 Получен answer от ${data.fromId}`);
+            console.log(`Получен answer от ${data.fromId}`);
             await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
             
           } else if (data.signal.type === "ice-candidate" && data.signal.candidate) {
-            console.log(`🧊 Получен ICE кандидат от ${data.fromId}`);
+            console.log(`Получен ICE кандидат от ${data.fromId}`);
             await pc.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
           }
         } catch (error) {
-          console.error(`❌ Ошибка обработки сигнала от ${data.fromId}:`, error);
+          console.error(`Ошибка обработки сигнала от ${data.fromId}:`, error);
         }
       }
     };
 
-    // Экспортируем handleSignal для использования в основном компоненте
     window.__handleWebRTCSignal = handleSignal;
 
     return () => {
@@ -366,7 +354,6 @@ export const useWebRTC = (ws, playerId, players) => {
     };
   }, [ws, createPeerConnection]);
 
-  // Переключение камеры
   const toggleCamera = () => {
     if (!localStream) return;
 
@@ -374,14 +361,13 @@ export const useWebRTC = (ws, playerId, players) => {
     if (videoTrack) {
       videoTrack.enabled = !videoTrack.enabled;
       setIsCameraOn(videoTrack.enabled);
-      console.log(`📹 Камера ${videoTrack.enabled ? 'включена' : 'выключена'}`);
+      console.log(`Камера ${videoTrack.enabled ? 'включена' : 'выключена'}`);
     }
   };
 
-  // Очистка
   useEffect(() => {
     return () => {
-      console.log("🧹 Очистка WebRTC соединений");
+      console.log("Очистка WebRTC соединений");
       Object.values(peersRef.current).forEach(pc => {
         if (pc && pc.connectionState !== 'closed') {
           pc.close();

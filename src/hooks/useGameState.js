@@ -27,12 +27,10 @@ export const useGameState = (ws, isHost, playerId, totalRounds) => {
   const descriptionTimeoutRef = useRef(null);
   const roundAnimationTimeoutRef = useRef(null);
 
-  // Синхронизация totalRounds с пропсом
   useEffect(() => {
     setTotalRoundsState(totalRounds);
   }, [totalRounds]);
 
-  // Обработка WebSocket сообщений
   useEffect(() => {
     if (!ws) return;
 
@@ -41,23 +39,23 @@ export const useGameState = (ws, isHost, playerId, totalRounds) => {
         const data = JSON.parse(msg.data);
 
         if (data.type === "kicked") {
-          console.log("🚪 Вы были кикнуты администратором. Перезагрузка страницы...");
+          console.log("Вы были кикнуты администратором");
           window.location.reload();
           return;
         }
 
         if (data.type === "game_started") {
-          console.log("🎮 Игра началась!");
+          console.log("Игра началась");
         } else if (data.type === "game_ready") {
-          console.log("✅ Игра готова");
+          console.log("Игра готова");
         } else if (data.type === "game_reset") {
-          console.log("🔄 Игра сброшена администратором");
+          console.log("Игра сброшена администратором");
           setGameStartTime(null);
           setElapsedTime(0);
           setCurrentRound(0);
           setHighlightedPlayerId(null);
         } else if (data.type === "round_changed") {
-          console.log(`🔄 Раунд изменен на: ${data.round}`);
+          console.log(`Раунд изменен на: ${data.round}`);
           setCurrentRound(data.round);
           setTotalRoundsState(data.totalRounds || totalRoundsState);
           setShowRoundAnimation(true);
@@ -75,7 +73,7 @@ export const useGameState = (ws, isHost, playerId, totalRounds) => {
           setVotedPlayers([]);
           setShowVotingAnimation(false);
         } else if (data.type === "voting_started") {
-          console.log("🗳️ Голосование началось");
+          console.log("Голосование началось");
           setVotingActive(true);
           setVotingPhase("voting");
           setVotingCandidates(data.candidates || []);
@@ -85,7 +83,7 @@ export const useGameState = (ws, isHost, playerId, totalRounds) => {
             setShowVotingAnimation(false);
           }, 3500);
         } else if (data.type === "voting_cancelled") {
-          console.log("🗳️ Голосование отменено");
+          console.log("Голосование отменено");
           setVotingActive(false);
           setVotingPhase(null);
           setVotingCandidates([]);
@@ -93,7 +91,7 @@ export const useGameState = (ws, isHost, playerId, totalRounds) => {
           setVotedPlayers([]);
           setShowVotingAnimation(false);
         } else if (data.type === "voting_completed") {
-          console.log("🗳️ Голосование завершено:", data.candidates);
+          console.log("Голосование завершено:", data.candidates);
           setVotingActive(false);
           setVotingPhase(null);
           setVotingCandidates([]);
@@ -123,7 +121,7 @@ export const useGameState = (ws, isHost, playerId, totalRounds) => {
             });
           }
         } else if (data.type === "voting_results") {
-          console.log("🗳️ Получены результаты голосования:", data.allResults);
+          console.log("Получены результаты голосования:", data.allResults);
           if (isHost && data.allResults && !votingResultsModal) {
             setVotingResultsModal({
               candidates: data.candidates || [],
@@ -131,7 +129,7 @@ export const useGameState = (ws, isHost, playerId, totalRounds) => {
             });
           }
         } else if (data.type === "voting_tie") {
-          console.log("🗳️ Ничья в голосовании, нужно выбрать:", data.candidates);
+          console.log("Ничья в голосовании, нужно выбрать:", data.candidates);
           if (isHost && data.allResults && !votingResultsModal) {
             setVotingResultsModal({
               candidates: data.candidates,
@@ -171,12 +169,10 @@ export const useGameState = (ws, isHost, playerId, totalRounds) => {
             setVotedPlayers(data.votedPlayers);
           }
           
-          // Применяем зеркалирование к видео элементам на основе данных игроков
-          // Это нужно делать в основном компоненте, т.к. нужен доступ к videoRefs
         } else if (data.type === "characteristic_revealed") {
-          console.log(`🎴 Характеристика раскрыта для игрока ${data.playerId}:`, data.characteristicType);
+          console.log(`Характеристика раскрыта для игрока ${data.playerId}:`, data.characteristicType);
         } else if (data.type === "player_banned") {
-          console.log(`🚫 Игрок ${data.playerId} ${data.banned ? 'изгнан' : 'возвращен'}`);
+          console.log(`Игрок ${data.playerId} ${data.banned ? 'изгнан' : 'возвращен'}`);
           setBannedPlayers(prev => {
             const newSet = new Set(prev);
             if (data.banned) {
@@ -192,7 +188,7 @@ export const useGameState = (ws, isHost, playerId, totalRounds) => {
           }
         }
       } catch (error) {
-        console.error("❌ Ошибка парсинга сообщения:", error);
+        console.error("Ошибка парсинга сообщения:", error);
       }
     };
 
@@ -208,7 +204,6 @@ export const useGameState = (ws, isHost, playerId, totalRounds) => {
     };
   }, [ws, isHost, totalRoundsState]);
 
-  // Таймер игры
   useEffect(() => {
     if (!gameStartTime) {
       setElapsedTime(0);
