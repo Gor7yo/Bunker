@@ -61,12 +61,12 @@ export const Lobby = ({ ws, playerId, players }) => {
         
         console.log("🎥 Запуск инициализации камеры в Lobby...");
         
-        // ⚡ ОПТИМИЗИРОВАННЫЕ НАСТРОЙКИ ДЛЯ 8 ИГРОКОВ: минимальное разрешение и FPS
+        // ⚡ СРЕДНИЕ НАСТРОЙКИ КАЧЕСТВА: умеренное разрешение и битрейт
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
-            width: { ideal: 480, max: 640 }, 
-            height: { ideal: 360, max: 480 },
-            frameRate: { ideal: 20, max: 24 }, // Снижаем до 20 fps для экономии ресурсов
+            width: { ideal: 320, max: 480 }, 
+            height: { ideal: 240, max: 360 },
+            frameRate: { ideal: 15, max: 20 }, // Среднее качество - 15 fps
             aspectRatio: { ideal: 4/3 },
             facingMode: 'user'
           },
@@ -74,9 +74,9 @@ export const Lobby = ({ ws, playerId, players }) => {
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
-            sampleRate: { ideal: 16000 }, // Снижаем качество аудио для экономии трафика
+            sampleRate: { ideal: 16000 }, // Среднее качество аудио
             channelCount: { ideal: 1 }, // Моно вместо стерео
-            bitrate: { ideal: 24000, max: 32000 } // Ограничиваем битрейт аудио
+            bitrate: { ideal: 20000, max: 24000 } // Средний битрейт аудио
           }
         });
         
@@ -237,15 +237,15 @@ export const Lobby = ({ ws, playerId, players }) => {
           } else if (track.kind === 'video') {
             // Для видео пробуем Simulcast или устанавливаем битрейт
             if (!params.encodings || params.encodings.length === 0) {
-              // Пытаемся включить Simulcast (только если encodings пустой)
+              // Пытаемся включить Simulcast с средними битрейтами (только если encodings пустой)
               try {
                 params.encodings = [
-                  { rid: 'high', active: true, maxBitrate: 350000, scaleResolutionDownBy: 1, maxFramerate: 20 },
-                  { rid: 'medium', active: true, maxBitrate: 200000, scaleResolutionDownBy: 2, maxFramerate: 15 },
-                  { rid: 'low', active: true, maxBitrate: 100000, scaleResolutionDownBy: 4, maxFramerate: 10 }
+                  { rid: 'high', active: true, maxBitrate: 180000, scaleResolutionDownBy: 1, maxFramerate: 15 },
+                  { rid: 'medium', active: true, maxBitrate: 120000, scaleResolutionDownBy: 2, maxFramerate: 12 },
+                  { rid: 'low', active: true, maxBitrate: 80000, scaleResolutionDownBy: 4, maxFramerate: 10 }
                 ];
                 await sender.setParameters(params);
-                console.log(`✅ Simulcast включен для ${remoteId}`);
+                console.log(`✅ Simulcast включен для ${remoteId} (среднее качество)`);
               } catch (simulcastError) {
                 // Если Simulcast не поддерживается, используем один поток
                 console.log(`⚠️ Simulcast не поддерживается, используем один поток для ${remoteId}`);
@@ -257,10 +257,10 @@ export const Lobby = ({ ws, playerId, players }) => {
                 if (encoding) {
                   const newEncoding = { ...encoding };
                   if ('maxBitrate' in encoding || encoding.maxBitrate === undefined || encoding.maxBitrate === null) {
-                    newEncoding.maxBitrate = 300000; // 300 kbps максимум
+                    newEncoding.maxBitrate = 150000; // 150 kbps - среднее качество
                   }
                   if ('maxFramerate' in encoding || encoding.maxFramerate === undefined || encoding.maxFramerate === null) {
-                    newEncoding.maxFramerate = 20;
+                    newEncoding.maxFramerate = 15; // 15 fps - среднее качество
                   }
                   fallbackParams.encodings = [newEncoding];
                   await sender.setParameters(fallbackParams);
@@ -272,7 +272,10 @@ export const Lobby = ({ ws, playerId, players }) => {
                 const encoding = params.encodings[0];
                 if (encoding && ('maxBitrate' in encoding || encoding.maxBitrate === undefined || encoding.maxBitrate === null)) {
                   const newEncoding = { ...encoding };
-                  newEncoding.maxBitrate = 300000;
+                  newEncoding.maxBitrate = 150000; // 150 kbps - среднее качество
+                  if ('maxFramerate' in encoding || encoding.maxFramerate === undefined || encoding.maxFramerate === null) {
+                    newEncoding.maxFramerate = 15; // 15 fps
+                  }
                   params.encodings[0] = newEncoding;
                   await sender.setParameters(params);
                 }
