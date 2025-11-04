@@ -30,7 +30,7 @@ export const useWebRTC = (ws, playerId, players) => {
       scaleResolutionDownBy = 1.25; // slight downscale to keep quality stable
     } else if (peerCount >= 7) {
       maxBitrate = 400_000;
-      maxFramerate = 18;
+      maxFramerate = 24;
       scaleResolutionDownBy = 1.5;
     }
 
