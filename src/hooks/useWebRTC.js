@@ -18,19 +18,19 @@ export const useWebRTC = (ws, playerId, players) => {
     // Mesh: total upstream ≈ per-sender bitrate × peers
     // Scale down as peers grow or when tab is hidden
     let maxBitrate = 1_200_000; // 1.2 Mbps default for better quality
-    let maxFramerate = 24;
+    let maxFramerate = 32;
     let scaleResolutionDownBy = 1;
 
     if (peerCount >= 3 && peerCount <= 4) {
       maxBitrate = 900_000;
-      maxFramerate = 24;
+      maxFramerate = 32;
     } else if (peerCount >= 5 && peerCount <= 6) {
       maxBitrate = 600_000;
-      maxFramerate = 20;
+      maxFramerate = 28;
       scaleResolutionDownBy = 1.25; // slight downscale to keep quality stable
     } else if (peerCount >= 7) {
       maxBitrate = 400_000;
-      maxFramerate = 18;
+      maxFramerate = 24;
       scaleResolutionDownBy = 1.5;
     }
 
@@ -91,7 +91,7 @@ export const useWebRTC = (ws, playerId, players) => {
           video: { 
             width: { ideal: 640, max: 960 }, 
             height: { ideal: 360, max: 540 },
-            frameRate: { ideal: 24, max: 24 },
+            frameRate: { ideal: 32, max: 32 },
             aspectRatio: { ideal: 16/9 },
             facingMode: 'user'
           }
