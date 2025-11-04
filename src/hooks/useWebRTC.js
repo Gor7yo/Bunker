@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 export const useWebRTC = (ws, playerId, players) => {
   const [localStream, setLocalStream] = useState(null);
@@ -8,6 +8,11 @@ export const useWebRTC = (ws, playerId, players) => {
   const isInitialized = useRef(false);
   const streamLockRef = useRef(false);
   const pageHiddenRef = useRef(false);
+  const playersRef = useRef([]);
+
+  useEffect(() => {
+    playersRef.current = players || [];
+  }, [players]);
 
   const getAdaptiveVideoParams = (peerCount, isHidden) => {
     // Mesh: total upstream ≈ per-sender bitrate × peers
@@ -143,7 +148,7 @@ export const useWebRTC = (ws, playerId, players) => {
     };
   }, [playerId]);
 
-  const createPeerConnection = async (remoteId) => {
+  const createPeerConnection = useCallback(async (remoteId) => {
     if (peersRef.current[remoteId]) {
       console.log(`Соединение с ${remoteId} уже существует`);
       return peersRef.current[remoteId];
@@ -226,7 +231,7 @@ export const useWebRTC = (ws, playerId, players) => {
               videoElement.playsInline = true;
               videoElement.muted = true;
               
-              const remotePlayer = players.find(p => p.id === remoteId);
+              const remotePlayer = playersRef.current.find(p => p.id === remoteId);
               if (remotePlayer && remotePlayer.mirrorCamera) {
                 videoElement.style.transform = 'scaleX(-1)';
               } else {
@@ -276,7 +281,7 @@ export const useWebRTC = (ws, playerId, players) => {
         delete peersRef.current[remoteId];
         
         setTimeout(async () => {
-          if (localStream && ws && players.find(p => p.id === remoteId)) {
+          if (localStream && ws && playersRef.current.find(p => p.id === remoteId)) {
             console.log(`Переподключаемся к ${remoteId}`);
             await createPeerConnection(remoteId);
           }
@@ -333,7 +338,10 @@ export const useWebRTC = (ws, playerId, players) => {
 
     peersRef.current[remoteId] = pc;
     return pc;
-  };
+  }, [localStream, ws, playerId]);
+
+  const lastPlayersSignatureRef = useRef('');
+  const lastStreamWsKeyRef = useRef('');
 
   useEffect(() => {
     if (!ws || !localStream) {
@@ -341,9 +349,24 @@ export const useWebRTC = (ws, playerId, players) => {
     }
 
     const timeoutId = setTimeout(() => {
-      console.log("Обновление WebRTC соединений, игроков:", players.length);
-      
-      players.forEach(player => {
+      const ids = (players || []).map(p => p.id).sort().join(',');
+      const hasStream = !!localStream;
+      const wsKey = ws ? '1' : '0';
+      const streamWsKey = `${hasStream ? 's' : 'n'}:${wsKey}`;
+
+      const topologyChanged = ids !== lastPlayersSignatureRef.current;
+      const transportChanged = streamWsKey !== lastStreamWsKeyRef.current;
+
+      if (!topologyChanged && !transportChanged) {
+        return; // no-op: avoid spam and redundant work
+      }
+
+      lastPlayersSignatureRef.current = ids;
+      lastStreamWsKeyRef.current = streamWsKey;
+
+      console.log("Обновление WebRTC соединений, игроков:", (players || []).length);
+
+      (players || []).forEach(player => {
         if (player.id !== playerId && !peersRef.current[player.id]) {
           console.log(`Создаем соединение с ${player.name}`);
           createPeerConnection(player.id);
@@ -351,7 +374,7 @@ export const useWebRTC = (ws, playerId, players) => {
       });
 
       Object.keys(peersRef.current).forEach(peerId => {
-        if (!players.find(p => p.id === peerId)) {
+        if (!(players || []).find(p => p.id === peerId)) {
           console.log(`Закрываем соединение с ${peerId}`);
           peersRef.current[peerId].close();
           delete peersRef.current[peerId];
