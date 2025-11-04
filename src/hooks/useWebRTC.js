@@ -15,9 +15,9 @@ export const useWebRTC = (ws, playerId, players) => {
   }, [players]);
 
   const getAdaptiveVideoParams = (peerCount, isHidden) => {
-    // Consistent high quality for all peers
-    let maxBitrate = 1_200_000; // 1.2 Mbps
-    let maxFramerate = 24;
+    // High-motion profile: 720p @ 30fps, ~2.4 Mbps
+    let maxBitrate = 2_400_000; // 2.4 Mbps
+    let maxFramerate = 30;
     let scaleResolutionDownBy = 1;
 
     if (isHidden) {
@@ -75,9 +75,9 @@ export const useWebRTC = (ws, playerId, players) => {
         
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
-            width: { ideal: 640, max: 960 }, 
-            height: { ideal: 360, max: 540 },
-            frameRate: { ideal: 24, max: 24 },
+            width: { ideal: 1280, max: 1280 }, 
+            height: { ideal: 720, max: 720 },
+            frameRate: { ideal: 30, max: 30 },
             aspectRatio: { ideal: 16/9 },
             facingMode: 'user'
           }
