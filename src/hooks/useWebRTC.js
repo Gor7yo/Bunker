@@ -15,16 +15,34 @@ export const useWebRTC = (ws, playerId, players) => {
   }, [players]);
 
   const getAdaptiveVideoParams = (peerCount, isHidden) => {
-    // High-motion profile: 720p @ 35fps, ~3.6 Mbps
-    let maxBitrate = 3_600_000; // 3.6 Mbps
-    let maxFramerate = 35;
+    // Profile optimized for ~9 participants in mesh
+    let maxBitrate = 1_200_000; // default for small groups
+    let maxFramerate = 24;
     let scaleResolutionDownBy = 1;
 
-    if (isHidden) {
-      // When tab is hidden, be conservative to save resources
-      maxBitrate = 200_000;
-      maxFramerate = 10;
+    if (peerCount <= 3) {
+      maxBitrate = 1_200_000; // 1.2 Mbps
+      maxFramerate = 24;
+      scaleResolutionDownBy = 1;
+    } else if (peerCount <= 6) {
+      maxBitrate = 800_000; // 0.8 Mbps
+      maxFramerate = 24;
+      scaleResolutionDownBy = 1;
+    } else if (peerCount <= 9) {
+      maxBitrate = 450_000; // 0.45 Mbps per peer
+      maxFramerate = 24;
+      scaleResolutionDownBy = 1.25;
+    } else {
+      maxBitrate = 350_000;
+      maxFramerate = 20;
       scaleResolutionDownBy = 1.5;
+    }
+
+    if (isHidden) {
+      // When tab is hidden, be extra conservative
+      maxBitrate = Math.min(maxBitrate, 150_000);
+      maxFramerate = Math.min(maxFramerate, 10);
+      scaleResolutionDownBy = Math.max(scaleResolutionDownBy, 1.5);
     }
 
     return { maxBitrate, maxFramerate, scaleResolutionDownBy };
@@ -75,9 +93,9 @@ export const useWebRTC = (ws, playerId, players) => {
         
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
-            width: { ideal: 1280, max: 1280 }, 
-            height: { ideal: 720, max: 720 },
-            frameRate: { ideal: 35, max: 35 },
+            width: { ideal: 960, max: 960 }, 
+            height: { ideal: 540, max: 540 },
+            frameRate: { ideal: 24, max: 24 },
             aspectRatio: { ideal: 16/9 },
             facingMode: 'user'
           }
