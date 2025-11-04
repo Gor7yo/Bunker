@@ -7,6 +7,66 @@ export const useWebRTC = (ws, playerId, players) => {
   const videoRefs = useRef({});
   const isInitialized = useRef(false);
   const streamLockRef = useRef(false);
+  const pageHiddenRef = useRef(false);
+
+  const getAdaptiveVideoParams = (peerCount, isHidden) => {
+    // Mesh: total upstream ≈ per-sender bitrate × peers
+    // Scale down as peers grow or when tab is hidden
+    let maxBitrate = 800_000; // 800 kbps default
+    let maxFramerate = 20;
+    let scaleResolutionDownBy = 1;
+
+    if (peerCount >= 3 && peerCount <= 4) {
+      maxBitrate = 500_000;
+      maxFramerate = 18;
+    } else if (peerCount >= 5 && peerCount <= 6) {
+      maxBitrate = 350_000;
+      maxFramerate = 15;
+      scaleResolutionDownBy = 1.25;
+    } else if (peerCount >= 7) {
+      maxBitrate = 250_000;
+      maxFramerate = 12;
+      scaleResolutionDownBy = 1.5;
+    }
+
+    if (isHidden) {
+      // When tab is hidden, be extra conservative
+      maxBitrate = Math.min(maxBitrate, 150_000);
+      maxFramerate = Math.min(maxFramerate, 10);
+      scaleResolutionDownBy = Math.max(scaleResolutionDownBy, 1.5);
+    }
+
+    return { maxBitrate, maxFramerate, scaleResolutionDownBy };
+  };
+
+  const applyParamsToAllVideoSenders = async () => {
+    const peerIds = Object.keys(peersRef.current);
+    const peerCount = peerIds.length;
+    const { maxBitrate, maxFramerate, scaleResolutionDownBy } = getAdaptiveVideoParams(peerCount, pageHiddenRef.current);
+
+    await Promise.all(peerIds.map(async (pid) => {
+      const pc = peersRef.current[pid];
+      if (!pc) return;
+      const senders = pc.getSenders();
+      await Promise.all(senders.map(async (sender) => {
+        if (!sender.track || sender.track.kind !== 'video') return;
+        try {
+          const params = sender.getParameters();
+          if (!params.encodings || params.encodings.length === 0) {
+            params.encodings = [{}];
+          }
+          params.encodings = [{
+            maxBitrate,
+            maxFramerate,
+            scaleResolutionDownBy
+          }];
+          await sender.setParameters(params);
+        } catch (e) {
+          console.warn('Не удалось применить параметры видео к sender:', e);
+        }
+      }));
+    }));
+  };
 
   useEffect(() => {
     if (streamLockRef.current || !playerId) return;
@@ -43,6 +103,12 @@ export const useWebRTC = (ws, playerId, players) => {
           video: stream.getVideoTracks().map(t => ({enabled: t.enabled, readyState: t.readyState}))
         });
         
+        // Hint encoder for fast motion (camera)
+        const vTrack = stream.getVideoTracks()[0];
+        if (vTrack && 'contentHint' in vTrack) {
+          try { vTrack.contentHint = 'motion'; } catch (_) {}
+        }
+
         streamLockRef.current = true;
         setLocalStream(stream);
         setIsCameraOn(true);
@@ -93,7 +159,7 @@ export const useWebRTC = (ws, playerId, players) => {
       iceTransportPolicy: 'all',
       bundlePolicy: 'max-bundle',
       rtcpMuxPolicy: 'require',
-      iceCandidatePoolSize: 0
+      iceCandidatePoolSize: 2
     });
 
     if (localStream) {
@@ -121,20 +187,16 @@ export const useWebRTC = (ws, playerId, players) => {
           }
           
           setTimeout(async () => {
+            const peerCount = Object.keys(peersRef.current).length;
+            const { maxBitrate, maxFramerate, scaleResolutionDownBy } = getAdaptiveVideoParams(peerCount, pageHiddenRef.current);
             try {
               const params = sender.getParameters();
               if (!params.encodings || params.encodings.length === 0) {
                 params.encodings = [{}];
               }
-              
-              params.encodings = [{
-                maxBitrate: 800000,
-                maxFramerate: 20,
-                scaleResolutionDownBy: 1
-              }];
-              
+              params.encodings = [{ maxBitrate, maxFramerate, scaleResolutionDownBy }];
               await sender.setParameters(params);
-              console.log(`Установлены параметры видео для ${remoteId}: 800 кбит/с, 20 FPS`);
+              console.log(`Параметры видео для ${remoteId}: ${(maxBitrate/1000)|0} кбит/с, ${maxFramerate} FPS, x${scaleResolutionDownBy}`);
             } catch (err) {
               console.warn('Не удалось установить параметры видео:', err);
             }
@@ -247,25 +309,7 @@ export const useWebRTC = (ws, playerId, players) => {
           });
           
           try {
-            const senders = pc.getSenders();
-            for (const sender of senders) {
-              if (sender.track && sender.track.kind === 'video') {
-                const params = sender.getParameters();
-                if (!params.encodings || params.encodings.length === 0) {
-                  params.encodings = [{}];
-                }
-                params.encodings = [{
-                  maxBitrate: 800000,
-                  maxFramerate: 20,
-                  scaleResolutionDownBy: 1
-                }];
-                try {
-                  await sender.setParameters(params);
-                } catch (e) {
-                  console.warn('Не удалось установить параметры видео:', e);
-                }
-              }
-            }
+            await applyParamsToAllVideoSenders();
           } catch (e) {
             console.warn('Не удалось установить ограничения битрейта:', e);
           }
@@ -314,10 +358,21 @@ export const useWebRTC = (ws, playerId, players) => {
           delete videoRefs.current[peerId];
         }
       });
+      // Re-apply adaptive parameters after topology changes
+      applyParamsToAllVideoSenders();
     }, 200);
 
     return () => clearTimeout(timeoutId);
   }, [players, localStream, ws, playerId, createPeerConnection]);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      pageHiddenRef.current = document.visibilityState === 'hidden';
+      applyParamsToAllVideoSenders();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
 
   useEffect(() => {
     if (!ws) return;
