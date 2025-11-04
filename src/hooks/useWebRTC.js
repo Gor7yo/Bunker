@@ -16,8 +16,8 @@ export const useWebRTC = (ws, playerId, players) => {
 
   const getAdaptiveVideoParams = (peerCount, isHidden) => {
     // Consistent high quality for all peers
-    let maxBitrate = 1_200_000; // 1.2 Mbps
-    let maxFramerate = 24;
+    let maxBitrate = 1_500_000; // 1.2 Mbps
+    let maxFramerate = 30;
     let scaleResolutionDownBy = 1;
 
     if (isHidden) {
