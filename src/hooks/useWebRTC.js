@@ -15,30 +15,16 @@ export const useWebRTC = (ws, playerId, players) => {
   }, [players]);
 
   const getAdaptiveVideoParams = (peerCount, isHidden) => {
-    // Mesh: total upstream ≈ per-sender bitrate × peers
-    // Scale down as peers grow or when tab is hidden
-    let maxBitrate = 1_200_000; // 1.2 Mbps default for better quality
+    // Consistent high quality for all peers
+    let maxBitrate = 1_200_000; // 1.2 Mbps
     let maxFramerate = 24;
     let scaleResolutionDownBy = 1;
 
-    if (peerCount >= 3 && peerCount <= 4) {
-      maxBitrate = 900_000;
-      maxFramerate = 24;
-    } else if (peerCount >= 5 && peerCount <= 6) {
-      maxBitrate = 600_000;
-      maxFramerate = 20;
-      scaleResolutionDownBy = 1.25; // slight downscale to keep quality stable
-    } else if (peerCount >= 7) {
-      maxBitrate = 400_000;
-      maxFramerate = 24;
-      scaleResolutionDownBy = 1.5;
-    }
-
     if (isHidden) {
-      // When tab is hidden, be extra conservative
-      maxBitrate = Math.min(maxBitrate, 200_000);
-      maxFramerate = Math.min(maxFramerate, 10);
-      scaleResolutionDownBy = Math.max(scaleResolutionDownBy, 1.5);
+      // When tab is hidden, be conservative to save resources
+      maxBitrate = 200_000;
+      maxFramerate = 10;
+      scaleResolutionDownBy = 1.5;
     }
 
     return { maxBitrate, maxFramerate, scaleResolutionDownBy };
