@@ -17,26 +17,26 @@ export const useWebRTC = (ws, playerId, players) => {
   const getAdaptiveVideoParams = (peerCount, isHidden) => {
     // Mesh: total upstream ≈ per-sender bitrate × peers
     // Scale down as peers grow or when tab is hidden
-    let maxBitrate = 800_000; // 800 kbps default
-    let maxFramerate = 20;
+    let maxBitrate = 1_200_000; // 1.2 Mbps default for better quality
+    let maxFramerate = 24;
     let scaleResolutionDownBy = 1;
 
     if (peerCount >= 3 && peerCount <= 4) {
-      maxBitrate = 500_000;
-      maxFramerate = 18;
+      maxBitrate = 900_000;
+      maxFramerate = 24;
     } else if (peerCount >= 5 && peerCount <= 6) {
-      maxBitrate = 350_000;
-      maxFramerate = 15;
-      scaleResolutionDownBy = 1.25;
+      maxBitrate = 600_000;
+      maxFramerate = 20;
+      scaleResolutionDownBy = 1.25; // slight downscale to keep quality stable
     } else if (peerCount >= 7) {
-      maxBitrate = 250_000;
-      maxFramerate = 12;
+      maxBitrate = 400_000;
+      maxFramerate = 18;
       scaleResolutionDownBy = 1.5;
     }
 
     if (isHidden) {
       // When tab is hidden, be extra conservative
-      maxBitrate = Math.min(maxBitrate, 150_000);
+      maxBitrate = Math.min(maxBitrate, 200_000);
       maxFramerate = Math.min(maxFramerate, 10);
       scaleResolutionDownBy = Math.max(scaleResolutionDownBy, 1.5);
     }
@@ -91,7 +91,7 @@ export const useWebRTC = (ws, playerId, players) => {
           video: { 
             width: { ideal: 640, max: 960 }, 
             height: { ideal: 360, max: 540 },
-            frameRate: { ideal: 20, max: 24 },
+            frameRate: { ideal: 24, max: 24 },
             aspectRatio: { ideal: 16/9 },
             facingMode: 'user'
           }
@@ -342,6 +342,7 @@ export const useWebRTC = (ws, playerId, players) => {
 
   const lastPlayersSignatureRef = useRef('');
   const lastStreamWsKeyRef = useRef('');
+  const lastTopologyLogTsRef = useRef(0);
 
   useEffect(() => {
     if (!ws || !localStream) {
@@ -364,7 +365,11 @@ export const useWebRTC = (ws, playerId, players) => {
       lastPlayersSignatureRef.current = ids;
       lastStreamWsKeyRef.current = streamWsKey;
 
-      console.log("Обновление WebRTC соединений, игроков:", (players || []).length);
+      const now = Date.now();
+      if (now - lastTopologyLogTsRef.current > 10000) { // log at most once per 10s
+        console.log("Обновление WebRTC соединений, игроков:", (players || []).length);
+        lastTopologyLogTsRef.current = now;
+      }
 
       (players || []).forEach(player => {
         if (player.id !== playerId && !peersRef.current[player.id]) {
