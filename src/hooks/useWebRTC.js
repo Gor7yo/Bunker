@@ -15,16 +15,39 @@ export const useWebRTC = (ws, playerId, players) => {
   }, [players]);
 
   const getAdaptiveVideoParams = (peerCount, isHidden) => {
-    // Consistent high quality for all peers
-    let maxBitrate = 1_900_000; // 1.2 Mbps
-    let maxFramerate = 60;
+    // Mesh-optimized for stability (aim: no lags with ~9 players)
+    // Keep per-sender bitrate reasonable; total upstream scales with peers
+    let maxBitrate = 1_200_000; // default for tiny rooms
+    let maxFramerate = 24;
     let scaleResolutionDownBy = 1;
 
-    if (isHidden) {
-      // When tab is hidden, be conservative to save resources
-      maxBitrate = 200_000;
-      maxFramerate = 10;
+    if (peerCount <= 3) {
+      // 2-3 peers: better quality is fine
+      maxBitrate = 1_200_000; // 1.2 Mbps
+      maxFramerate = 24;
+      scaleResolutionDownBy = 1;
+    } else if (peerCount <= 6) {
+      // 4-6 peers
+      maxBitrate = 800_000; // 0.8 Mbps
+      maxFramerate = 24;
+      scaleResolutionDownBy = 1;
+    } else if (peerCount <= 9) {
+      // 7-9 peers (target case)
+      maxBitrate = 500_000; // 0.5 Mbps per peer → ~4 Mbps total to 8 peers
+      maxFramerate = 24;
+      scaleResolutionDownBy = 1.25; // slight downscale for encoder headroom
+    } else {
+      // 10+
+      maxBitrate = 350_000;
+      maxFramerate = 20;
       scaleResolutionDownBy = 1.5;
+    }
+
+    if (isHidden) {
+      // Hidden tab: prioritize saving CPU/bandwidth
+      maxBitrate = Math.min(maxBitrate, 150_000);
+      maxFramerate = Math.min(maxFramerate, 10);
+      scaleResolutionDownBy = Math.max(scaleResolutionDownBy, 1.5);
     }
 
     return { maxBitrate, maxFramerate, scaleResolutionDownBy };
@@ -75,8 +98,8 @@ export const useWebRTC = (ws, playerId, players) => {
         
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
-            width: { ideal: 640, max: 960 }, 
-            height: { ideal: 360, max: 540 },
+            width: { ideal: 960, max: 960 }, 
+            height: { ideal: 540, max: 540 },
             frameRate: { ideal: 24, max: 24 },
             aspectRatio: { ideal: 16/9 },
             facingMode: 'user'
