@@ -32,15 +32,15 @@ export const useWebRTC = (ws, playerId, players) => {
       maxFramerate = 24;
       scaleResolutionDownBy = 1;
     } else if (peerCount <= 9) {
-      // 7-9 peers (target case)
-      maxBitrate = 500_000; // 0.5 Mbps per peer → ~4 Mbps total to 8 peers
-      maxFramerate = 24;
-      scaleResolutionDownBy = 1.25; // slight downscale for encoder headroom
+      // 7-9 peers (target case) - повышенное качество
+      maxBitrate = 950_000; // 0.95 Mbps per peer → ~7.6 Mbps total to 8 peers
+      maxFramerate = 30;
+      scaleResolutionDownBy = 1; // без даунскейла для лучшего качества
     } else {
       // 10+
-      maxBitrate = 350_000;
-      maxFramerate = 20;
-      scaleResolutionDownBy = 1.5;
+      maxBitrate = 700_000;
+      maxFramerate = 24;
+      scaleResolutionDownBy = 1.25;
     }
 
     if (isHidden) {
@@ -98,9 +98,9 @@ export const useWebRTC = (ws, playerId, players) => {
         
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
-            width: { ideal: 960, max: 960 }, 
-            height: { ideal: 540, max: 540 },
-            frameRate: { ideal: 24, max: 24 },
+            width: { ideal: 1280, max: 1280 }, 
+            height: { ideal: 720, max: 720 },
+            frameRate: { ideal: 30, max: 30 },
             aspectRatio: { ideal: 16/9 },
             facingMode: 'user'
           }
