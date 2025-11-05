@@ -37,13 +37,36 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  background-image: url(../../../public/image\ \(3\).png);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   padding: 10px;
   width: 100%;
   color: #ffffff;
   position: relative;
   justify-content: center;
   align-items: center;
+  overflow: hidden;
+}
+
+.home::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 0%,
+    transparent 30%,
+    rgba(0, 0, 0, 0.5) 50%,
+    rgba(0, 0, 0, 0.8) 70%,
+    rgba(0, 0, 0, 0.8) 100%
+  );
+  pointer-events: none;
+  z-index: 1;
 }
 
 .home-page {
@@ -56,6 +79,8 @@
   border-radius: 12px;
   border: 2px solid #ff8c00;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 2;
 }
 
 .title-block {
