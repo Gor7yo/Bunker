@@ -499,11 +499,33 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
           gameStartedRef: gameStartedRef.current,
           gameStartedProp: gameStarted,
           hasCharacteristics,
+          playersCount: players?.length,
+          playersWithChars: players?.filter(p => p.characteristics && Object.keys(p.characteristics).length > 0).length,
           shouldRequestMedia,
-          localStream: !!localStream
+          localStream: !!localStream,
+          sendTransportReady: !!sendTransportRef.current
         });
         
-        if (shouldRequestMedia && !localStream) {
+        // Если игра началась (есть характеристики) - запрашиваем медиа принудительно
+        if (hasCharacteristics && !localStream && sendTransportRef.current) {
+          console.log('🎮 Обнаружены характеристики - игра началась, принудительно запрашиваем медиа...');
+          setTimeout(async () => {
+            try {
+              console.log('🎥 Запрашиваем getUserMedia (принудительно)...');
+              const stream = await getLocalStream();
+              console.log('🎥 Stream получен:', stream ? 'да' : 'нет');
+              if (stream && sendTransportRef.current) {
+                console.log('📹 Отправляем видео...');
+                await produceMedia('video');
+                console.log('🎤 Отправляем аудио...');
+                await produceMedia('audio');
+                console.log('✅ Медиа успешно отправлено (принудительно)');
+              }
+            } catch (error) {
+              console.error('❌ Ошибка запроса медиа (принудительно):', error);
+            }
+          }, 1000); // Увеличиваем задержку для стабильности
+        } else if (shouldRequestMedia && !localStream) {
           console.log('🎮 Игра началась, запрашиваем медиа...');
           setTimeout(async () => {
             try {
@@ -545,28 +567,51 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
   useEffect(() => {
     // Проверяем все индикаторы начала игры
     const hasCharacteristics = players && players.some(p => p.characteristics && Object.keys(p.characteristics).length > 0);
+    const playersWithChars = players ? players.filter(p => p.characteristics && Object.keys(p.characteristics).length > 0) : [];
+    
+    console.log('🔍 Проверка начала игры (useEffect):', {
+      gameStarted,
+      hasCharacteristics,
+      playersCount: players?.length,
+      playersWithCharsCount: playersWithChars.length,
+      playersWithChars: playersWithChars.map(p => ({ id: p.id, name: p.name, charsCount: Object.keys(p.characteristics || {}).length })),
+      isInitialized: isInitializedRef.current,
+      hasTransport: !!sendTransportRef.current,
+      hasStream: !!localStream
+    });
+    
     const shouldRequest = (gameStarted || hasCharacteristics) && isInitializedRef.current && sendTransportRef.current && !localStream;
     
     if (shouldRequest) {
-      console.log('🎮 Обнаружено начало игры, запрашиваем медиа...', {
-        gameStarted,
-        hasCharacteristics,
+      console.log('🎮 Обнаружено начало игры, запрашиваем медиа...');
+      setTimeout(async () => {
+        try {
+          console.log('🎥 Запрашиваем getUserMedia (useEffect)...');
+          const stream = await getLocalStream();
+          console.log('🎥 Stream получен:', stream ? 'да' : 'нет');
+          if (stream && sendTransportRef.current) {
+            console.log('📹 Отправляем видео...');
+            await produceMedia('video');
+            console.log('🎤 Отправляем аудио...');
+            await produceMedia('audio');
+            console.log('✅ Медиа успешно отправлено (useEffect)');
+          } else {
+            console.warn('⚠️ Stream или transport не готовы:', {
+              stream: !!stream,
+              transport: !!sendTransportRef.current
+            });
+          }
+        } catch (error) {
+          console.error('❌ Ошибка запроса медиа (useEffect):', error);
+        }
+      }, 500);
+    } else {
+      console.log('⏳ Условия не выполнены для запроса медиа:', {
+        gameStartedOrHasChars: gameStarted || hasCharacteristics,
         isInitialized: isInitializedRef.current,
         hasTransport: !!sendTransportRef.current,
         hasStream: !!localStream
       });
-      setTimeout(async () => {
-        try {
-          const stream = await getLocalStream();
-          if (stream && sendTransportRef.current) {
-            await produceMedia('video');
-            await produceMedia('audio');
-            console.log('✅ Медиа успешно отправлено');
-          }
-        } catch (error) {
-          console.error('❌ Ошибка запроса медиа:', error);
-        }
-      }, 300);
     }
   }, [gameStarted, players, localStream, getLocalStream, produceMedia]);
 
