@@ -407,15 +407,11 @@ export const useMediasoup = (ws, playerId, players) => {
         ]);
         await createTransport('recv', recvTransportData);
 
-        // 5. Получаем локальный поток и отправляем
-        const stream = await getLocalStream();
-        if (stream) {
-          await produceMedia('video');
-          await produceMedia('audio');
-        }
-
+        // 5. НЕ запрашиваем getUserMedia здесь - отложим до начала игры
+        // getUserMedia требует user interaction, поэтому запросим его когда игра начнется
+        
         isInitializedRef.current = true;
-        console.log('✅ Mediasoup инициализирован');
+        console.log('✅ Mediasoup инициализирован (готов к запросу медиа)');
       } catch (error) {
         console.error('❌ Ошибка инициализации mediasoup:', error);
       }
@@ -427,6 +423,64 @@ export const useMediasoup = (ws, playerId, players) => {
       ws.addEventListener('open', initializeMediasoup);
     }
   }, [ws, playerId, initDevice, createTransport, getLocalStream, produceMedia]);
+
+  // Запрос медиа когда игра начинается (после user interaction)
+  const requestMediaOnGameStart = useCallback(async () => {
+    if (!sendTransportRef.current || localStream) {
+      // Transport не готов или медиа уже запрошено
+      return;
+    }
+
+    console.log('🎮 Игра началась, запрашиваем доступ к камере/микрофону...');
+    
+    // Теперь запрашиваем медиа - к этому моменту пользователь уже взаимодействовал со страницей
+    const stream = await getLocalStream();
+    if (stream && sendTransportRef.current) {
+      try {
+        await produceMedia('video');
+        await produceMedia('audio');
+        console.log('✅ Медиа успешно отправлено после начала игры');
+      } catch (error) {
+        console.error('❌ Ошибка отправки медиа:', error);
+      }
+    }
+  }, [localStream, getLocalStream, produceMedia]);
+
+  useEffect(() => {
+    if (!ws) return;
+
+    const handleGameStarted = async (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'game_started') {
+          // Ждем пока mediasoup инициализируется, если еще не готов
+          if (!isInitializedRef.current || !sendTransportRef.current) {
+            console.log('⏳ Ожидаем инициализации mediasoup...');
+            // Проверяем каждые 500ms
+            const checkInterval = setInterval(() => {
+              if (isInitializedRef.current && sendTransportRef.current) {
+                clearInterval(checkInterval);
+                requestMediaOnGameStart();
+              }
+            }, 500);
+            
+            // Таймаут на 10 секунд
+            setTimeout(() => clearInterval(checkInterval), 10000);
+          } else {
+            requestMediaOnGameStart();
+          }
+        }
+      } catch (error) {
+        // Игнорируем ошибки парсинга других сообщений
+      }
+    };
+
+    ws.addEventListener('message', handleGameStarted);
+    return () => {
+      ws.removeEventListener('message', handleGameStarted);
+    };
+  }, [ws, requestMediaOnGameStart]);
 
   // Обработка новых producers от других игроков
   useEffect(() => {
