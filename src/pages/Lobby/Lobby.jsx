@@ -18,10 +18,12 @@ export const Lobby = ({ ws, playerId, players }) => {
   const { mirrorCamera } = useContext(DataContext);
   
   const isHost = players.find(p => p.id === playerId)?.role === "host";
-  
-  const { localStream, isCameraOn, toggleCamera, videoRefs } = useMediasoup(ws, playerId, players);
-  const peersRef = React.useRef({}); // Заглушка для совместимости (не используется в mediasoup)
   const gameState = useGameState(ws, isHost, playerId, 5);
+  
+  // Проверяем что игра началась через gameStartTime
+  const gameStarted = !!gameState.gameStartTime;
+  const { localStream, isCameraOn, toggleCamera, videoRefs } = useMediasoup(ws, playerId, players, gameStarted);
+  const peersRef = React.useRef({}); // Заглушка для совместимости (не используется в mediasoup)
   
   const {
     isAdminModalOpen,

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as mediasoupClient from 'mediasoup-client';
 
-export const useMediasoup = (ws, playerId, players) => {
+export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
   const [localStream, setLocalStream] = useState(null);
   const [isCameraOn, setIsCameraOn] = useState(true);
   const videoRefs = useRef({});
@@ -304,6 +304,24 @@ export const useMediasoup = (ws, playerId, players) => {
         if (data.type === 'game_started') {
           console.log('🎮 Получено сообщение game_started (ранняя подписка)');
           gameStartedRef.current = true;
+          console.log('✅ Флаг gameStartedRef установлен в true');
+          
+          // Если mediasoup уже инициализирован, запрашиваем медиа сразу
+          if (isInitializedRef.current && sendTransportRef.current) {
+            console.log('✅ Mediasoup уже готов, запрашиваем медиа немедленно...');
+            setTimeout(async () => {
+              try {
+                const stream = await getLocalStream();
+                if (stream && sendTransportRef.current) {
+                  await produceMedia('video');
+                  await produceMedia('audio');
+                  console.log('✅ Медиа успешно отправлено');
+                }
+              } catch (error) {
+                console.error('❌ Ошибка запроса медиа:', error);
+              }
+            }, 300);
+          }
         }
       } catch (error) {
         // Игнорируем ошибки парсинга
@@ -314,7 +332,7 @@ export const useMediasoup = (ws, playerId, players) => {
     return () => {
       ws.removeEventListener('message', handleGameStarted);
     };
-  }, [ws]);
+  }, [ws, getLocalStream, produceMedia]);
 
   // Инициализация mediasoup
   useEffect(() => {
@@ -434,22 +452,38 @@ export const useMediasoup = (ws, playerId, players) => {
         // getUserMedia требует user interaction, но к моменту начала игры пользователь уже взаимодействовал
         isInitializedRef.current = true;
         console.log('✅ Mediasoup инициализирован (готов к запросу медиа)');
+        console.log('🔍 Проверка: gameStartedRef.current =', gameStartedRef.current);
+        console.log('🔍 Проверка: gameStarted prop =', gameStarted);
+        console.log('🔍 Проверка: localStream =', localStream);
         
-        // Если игра уже началась, запрашиваем медиа
-        if (gameStartedRef.current && !localStream) {
-          console.log('🎮 Игра уже началась, запрашиваем медиа...');
+        // Проверяем оба источника: ref (из обработчика) и prop (из компонента)
+        const shouldRequestMedia = gameStartedRef.current || gameStarted;
+        
+        if (shouldRequestMedia && !localStream) {
+          console.log('🎮 Игра началась, запрашиваем медиа...');
           setTimeout(async () => {
             try {
+              console.log('🎥 Запрашиваем getUserMedia...');
               const stream = await getLocalStream();
+              console.log('🎥 Stream получен:', stream ? 'да' : 'нет');
               if (stream && sendTransportRef.current) {
+                console.log('📹 Отправляем видео...');
                 await produceMedia('video');
+                console.log('🎤 Отправляем аудио...');
                 await produceMedia('audio');
                 console.log('✅ Медиа успешно отправлено после инициализации');
+              } else {
+                console.warn('⚠️ Stream или transport не готовы:', {
+                  stream: !!stream,
+                  transport: !!sendTransportRef.current
+                });
               }
             } catch (error) {
               console.error('❌ Ошибка запроса медиа после инициализации:', error);
             }
           }, 500); // Небольшая задержка для стабильности
+        } else {
+          console.log('⏳ Игра еще не началась, медиа будет запрошено когда игра начнется');
         }
       } catch (error) {
         console.error('❌ Ошибка инициализации mediasoup:', error);
@@ -462,6 +496,25 @@ export const useMediasoup = (ws, playerId, players) => {
       ws.addEventListener('open', initializeMediasoup);
     }
   }, [ws, playerId, initDevice, createTransport, getLocalStream, produceMedia]);
+
+  // Отслеживаем изменение gameStarted prop и запрашиваем медиа
+  useEffect(() => {
+    if (gameStarted && isInitializedRef.current && sendTransportRef.current && !localStream) {
+      console.log('🎮 gameStarted изменился на true, запрашиваем медиа...');
+      setTimeout(async () => {
+        try {
+          const stream = await getLocalStream();
+          if (stream && sendTransportRef.current) {
+            await produceMedia('video');
+            await produceMedia('audio');
+            console.log('✅ Медиа успешно отправлено после изменения gameStarted');
+          }
+        } catch (error) {
+          console.error('❌ Ошибка запроса медиа после изменения gameStarted:', error);
+        }
+      }, 300);
+    }
+  }, [gameStarted, localStream, getLocalStream, produceMedia]);
 
   // Запрос медиа когда игра начинается (после user interaction)
   const requestMediaOnGameStart = useCallback(async () => {
