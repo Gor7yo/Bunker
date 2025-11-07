@@ -14,6 +14,7 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
   const isInitializedRef = useRef(false);
   const gameStartedRef = useRef(false); // Флаг что игра началась
   const playersRef = useRef([]);
+  const mediaRequestedRef = useRef(false); // Флаг что медиа уже запрошено (чтобы не запрашивать повторно)
 
   useEffect(() => {
     playersRef.current = players || [];
@@ -484,13 +485,36 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
           sendTransportReady: !!sendTransportRef.current
         });
         
-        // НЕ запрашиваем медиа автоматически - только по клику пользователя
-        // Браузер требует явного user interaction для getUserMedia
-        if (hasCharacteristics && !localStream && sendTransportRef.current) {
-          console.log('💡 Игра началась, но медиа не запрошено. Нажмите кнопку "Разрешить доступ к камере" для активации.');
-          setPermissionError('NotAllowedError'); // Показываем кнопку
+        // Если игра уже началась, попробуем сразу запросить медиа
+        const hasCharacteristicsNow = players && players.some(p => p.characteristics && Object.keys(p.characteristics).length > 0);
+        const gameStartedNow = gameStartedRef.current || gameStarted || hasCharacteristicsNow;
+        
+        if (gameStartedNow && !localStream && !mediaRequestedRef.current) {
+          console.log('✅ Mediasoup готов, игра уже началась - запрашиваем медиа...');
+          mediaRequestedRef.current = true;
+          
+          setTimeout(async () => {
+            try {
+              const stream = await getLocalStream();
+              if (stream && sendTransportRef.current) {
+                try {
+                  await produceMedia('video');
+                  console.log('✅ Видео успешно отправлено после инициализации mediasoup');
+                  setPermissionError(null);
+                } catch (error) {
+                  console.error('❌ Ошибка отправки видео:', error);
+                  mediaRequestedRef.current = false;
+                }
+              } else {
+                mediaRequestedRef.current = false;
+              }
+            } catch (error) {
+              console.error('❌ Ошибка при запросе медиа:', error);
+              mediaRequestedRef.current = false;
+            }
+          }, 500);
         } else {
-          console.log('⏳ Игра еще не началась или transport не готов');
+          console.log('✅ Mediasoup готов. Ожидаем начала игры для запроса медиа...');
         }
       } catch (error) {
         console.error('❌ Ошибка инициализации mediasoup:', error);
@@ -510,38 +534,110 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
     const hasCharacteristics = players && players.some(p => p.characteristics && Object.keys(p.characteristics).length > 0);
     const playersWithChars = players ? players.filter(p => p.characteristics && Object.keys(p.characteristics).length > 0) : [];
     
+    // Используем gameStartedRef как более ранний индикатор
+    const gameActuallyStarted = gameStarted || gameStartedRef.current || hasCharacteristics;
+    
     console.log('🔍 Проверка начала игры (useEffect):', {
       gameStarted,
+      gameStartedRef: gameStartedRef.current,
       hasCharacteristics,
+      gameActuallyStarted,
       playersCount: players?.length,
       playersWithCharsCount: playersWithChars.length,
       playersWithChars: playersWithChars.map(p => ({ id: p.id, name: p.name, charsCount: Object.keys(p.characteristics || {}).length })),
       isInitialized: isInitializedRef.current,
       hasTransport: !!sendTransportRef.current,
-      hasStream: !!localStream
+      hasStream: !!localStream,
+      permissionError
     });
     
-    // НЕ запрашиваем медиа автоматически - только по клику пользователя
-    const shouldShowButton = (gameStarted || hasCharacteristics) && isInitializedRef.current && sendTransportRef.current && !localStream;
+    // Автоматически запрашиваем медиа, если игра началась, transport готов, но потока еще нет
+    // Это безопасно, так как пользователь уже взаимодействовал (нажал "Начать игру")
+    const shouldRequestMedia = gameActuallyStarted && 
+                               isInitializedRef.current && 
+                               sendTransportRef.current && 
+                               !localStream &&
+                               !permissionError &&
+                               !mediaRequestedRef.current; // Не запрашиваем повторно
     
-    if (shouldShowButton && !permissionError) {
-      console.log('💡 Игра началась, но медиа не запрошено. Нажмите кнопку для активации.');
-      setPermissionError('NotAllowedError'); // Показываем кнопку запроса разрешений
+    if (shouldRequestMedia) {
+      console.log('🎥 Игра началась, автоматически запрашиваем доступ к камере...');
+      mediaRequestedRef.current = true; // Помечаем, что запрос отправлен
+      
+      // Небольшая задержка для уверенности, что все готово
+      const timeoutId = setTimeout(async () => {
+        try {
+          const stream = await getLocalStream();
+          if (stream && sendTransportRef.current) {
+            try {
+              await produceMedia('video');
+              console.log('✅ Видео успешно отправлено');
+              setPermissionError(null);
+            } catch (error) {
+              console.error('❌ Ошибка отправки видео:', error);
+              mediaRequestedRef.current = false; // Разрешаем повторить при ошибке
+            }
+          } else {
+            mediaRequestedRef.current = false; // Разрешаем повторить если stream не получен
+          }
+        } catch (error) {
+          console.error('❌ Ошибка при запросе разрешений:', error);
+          mediaRequestedRef.current = false; // Разрешаем повторить при ошибке
+          // Ошибка уже обработана в getLocalStream, просто показываем кнопку
+        }
+      }, 500);
+      
+      return () => clearTimeout(timeoutId);
+    } else if (gameActuallyStarted && isInitializedRef.current && sendTransportRef.current && !localStream) {
+      // Если не удалось автоматически, показываем кнопку
+      if (!permissionError && !mediaRequestedRef.current) {
+        console.log('💡 Игра началась, но медиа не запрошено. Показываем кнопку.');
+        setPermissionError('NotAllowedError'); // Показываем кнопку запроса разрешений
+      }
     }
-  }, [gameStarted, players, localStream, getLocalStream, produceMedia]);
+  }, [gameStarted, players, localStream, getLocalStream, produceMedia, permissionError]);
 
-  // Отслеживаем game_started только для установки флага, НЕ запрашиваем медиа автоматически
+  // Отслеживаем game_started и пытаемся запросить медиа если все готово
   useEffect(() => {
     if (!ws) return;
 
-    const handleGameStarted = (event) => {
+    const handleGameStarted = async (event) => {
       try {
         const data = JSON.parse(event.data);
         
         if (data.type === 'game_started') {
           console.log('🎮 Получено сообщение game_started');
           gameStartedRef.current = true; // Сохраняем флаг
-          // НЕ запрашиваем медиа автоматически - только по клику пользователя
+          
+          // Если mediasoup уже инициализирован и transport готов, попробуем запросить медиа
+          // Небольшая задержка, чтобы дать время на обновление players
+          setTimeout(() => {
+            if (isInitializedRef.current && 
+                sendTransportRef.current && 
+                !localStream && 
+                !mediaRequestedRef.current) {
+              console.log('🎥 Получено game_started, пытаемся запросить медиа...');
+              mediaRequestedRef.current = true;
+              
+              getLocalStream().then(async (stream) => {
+                if (stream && sendTransportRef.current) {
+                  try {
+                    await produceMedia('video');
+                    console.log('✅ Видео успешно отправлено после game_started');
+                    setPermissionError(null);
+                  } catch (error) {
+                    console.error('❌ Ошибка отправки видео после game_started:', error);
+                    mediaRequestedRef.current = false;
+                  }
+                } else {
+                  mediaRequestedRef.current = false;
+                }
+              }).catch((error) => {
+                console.error('❌ Ошибка при запросе медиа после game_started:', error);
+                mediaRequestedRef.current = false;
+              });
+            }
+          }, 1000); // Даем время на обновление players
         }
       } catch (error) {
         // Игнорируем ошибки парсинга других сообщений
@@ -552,7 +648,7 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
     return () => {
       ws.removeEventListener('message', handleGameStarted);
     };
-  }, [ws]);
+  }, [ws, localStream, getLocalStream, produceMedia]);
 
   // Обработка новых producers от других игроков
   useEffect(() => {
@@ -638,6 +734,7 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
   const requestPermissions = useCallback(async () => {
     console.log('💡 Запрашиваем разрешения на камеру (по клику пользователя)...');
     setPermissionError(null); // Очищаем предыдущую ошибку
+    mediaRequestedRef.current = false; // Сбрасываем флаг для повторной попытки
     try {
       const stream = await getLocalStream();
       if (stream && sendTransportRef.current) {
@@ -645,15 +742,19 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
           await produceMedia('video');
           console.log('✅ Видео успешно отправлено');
           setPermissionError(null); // Успех - очищаем ошибку
+          mediaRequestedRef.current = true;
         } catch (error) {
           console.error('❌ Ошибка отправки видео:', error);
+          mediaRequestedRef.current = false;
         }
       } else if (!stream) {
         // Если stream не получен, ошибка уже установлена в getLocalStream
         console.warn('⚠️ Stream не получен, проверьте разрешения');
+        mediaRequestedRef.current = false;
       }
     } catch (error) {
       console.error('❌ Ошибка при запросе разрешений:', error);
+      mediaRequestedRef.current = false;
     }
   }, [getLocalStream, produceMedia]);
 
