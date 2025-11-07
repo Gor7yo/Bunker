@@ -21,7 +21,7 @@ export const AdminPanel = () => {
     if (wsRef.current) return;
 
     // Определяем URL WebSocket (localhost для разработки или продакшн)
-    const wsUrl = 'wss://bunker-server.ru';
+    const wsUrl = 'wss://bunker-server-ujdj.onrender.com';
     
     const socket = new WebSocket(wsUrl);
     wsRef.current = socket;
@@ -65,7 +65,6 @@ export const AdminPanel = () => {
           case "game_reset":
             setResetMessage("✅ Игра успешно сброшена!");
             setGameStarted(false);
-            setGameReady(false);
             setResetConfirm(false);
             setTimeout(() => setResetMessage(""), 3000);
             break;

@@ -25,7 +25,7 @@ export const JoinRoom = () => {
   useEffect(() => {
     if(wsRef.current) return
 
-    const socket = new WebSocket("wss://bunker-server.ru");
+    const socket = new WebSocket("wss://bunker-server-ujdj.onrender.com");
     wsRef.current = socket;
     setWs(socket);
 
