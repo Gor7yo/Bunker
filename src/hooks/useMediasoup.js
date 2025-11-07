@@ -152,34 +152,30 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
           height: { ideal: 720 },
           frameRate: { ideal: 30 },
         },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
+        audio: false,
       });
 
       setLocalStream(stream);
       setIsCameraOn(true);
       setPermissionError(null); // Очищаем ошибку при успехе
-      console.log('✅ Доступ к камере и микрофону получен');
+      console.log('✅ Доступ к камере получен');
       return stream;
     } catch (error) {
       console.error('❌ Ошибка получения локального потока:', error);
       setIsCameraOn(false);
       
       // Показываем понятное сообщение пользователю
-      let errorMessage = 'Не удалось получить доступ к камере/микрофону';
+      let errorMessage = 'Не удалось получить доступ к камере';
       
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        errorMessage = 'Разрешение на доступ к камере/микрофону отклонено. Нажмите кнопку "Разрешить доступ" для повторного запроса.';
+        errorMessage = 'Разрешение на доступ к камере отклонено. Нажмите кнопку "Разрешить доступ" для повторного запроса.';
         setPermissionError('NotAllowedError'); // Устанавливаем ошибку для показа кнопки
-        console.warn('💡 Подсказка: Проверьте настройки разрешений браузера для камеры и микрофона');
+        console.warn('💡 Подсказка: Проверьте настройки разрешений браузера для камеры');
       } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-        errorMessage = '⚠️ Камера или микрофон не найдены. Убедитесь, что устройства подключены.';
+        errorMessage = '⚠️ Камера не найдена. Убедитесь, что устройство подключено.';
         setPermissionError('NotFoundError');
       } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-        errorMessage = '⚠️ Камера или микрофон уже используются другим приложением.';
+        errorMessage = '⚠️ Камера уже используется другим приложением.';
         setPermissionError('NotReadableError');
       } else if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') {
         errorMessage = '⚠️ Запрошенные настройки камеры не поддерживаются.';
@@ -193,23 +189,24 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
     }
   }, []);
 
-  // Отправить медиа (produce)
+  // Отправить медиа (produce) - только видео
   const produceMedia = useCallback(async (kind) => {
     if (!sendTransportRef.current || !localStream) {
       console.warn('⚠️ Transport или stream не готовы');
       return;
     }
 
+    // Поддерживаем только видео
+    if (kind !== 'video') {
+      console.warn(`⚠️ Аудио не поддерживается. Пропускаем ${kind}`);
+      return;
+    }
+
     try {
-      let track;
-      if (kind === 'video') {
-        track = localStream.getVideoTracks()[0];
-      } else {
-        track = localStream.getAudioTracks()[0];
-      }
+      const track = localStream.getVideoTracks()[0];
 
       if (!track) {
-        console.warn(`⚠️ Трек ${kind} не найден`);
+        console.warn(`⚠️ Видео трек не найден`);
         return;
       }
 
@@ -257,6 +254,13 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
               kind: consumerData.kind,
               rtpParameters: consumerData.rtpParameters,
             }).then((consumer) => {
+              // Игнорируем аудио consumers
+              if (consumer.kind === 'audio') {
+                console.warn(`⚠️ Получен аудио consumer для ${producerId} - игнорируем`);
+                resolve(null);
+                return;
+              }
+
               consumersRef.current.set(producerId, consumer);
               
               // Получаем трек
@@ -267,10 +271,12 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
                 const video = document.createElement('video');
                 video.autoplay = true;
                 video.playsInline = true;
+                video.muted = true; // Обязательно отключаем звук
                 video.srcObject = new MediaStream([track]);
                 videoRefs.current[producerId] = video;
               } else {
                 const video = videoRefs.current[producerId];
+                video.muted = true; // Обязательно отключаем звук
                 const stream = new MediaStream([track]);
                 video.srcObject = stream;
               }
@@ -558,8 +564,8 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
       if (data.type === 'new_producer') {
         const { playerId: producerPlayerId, producerId, kind } = data;
         
-        // Создаем consumer для нового producer
-        if (producerPlayerId !== playerId) {
+        // Создаем consumer только для видео producers
+        if (producerPlayerId !== playerId && kind === 'video') {
           consumeMedia(producerId).catch(error => {
             console.error('❌ Ошибка создания consumer:', error);
           });
@@ -620,7 +626,6 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
           // Отправляем видео если transport готов
           try {
             await produceMedia('video');
-            await produceMedia('audio');
           } catch (error) {
             console.error('❌ Ошибка отправки медиа после получения потока:', error);
           }
@@ -631,18 +636,17 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
 
   // Функция для повторного запроса разрешений (вызывается по клику пользователя)
   const requestPermissions = useCallback(async () => {
-    console.log('💡 Запрашиваем разрешения на камеру и микрофон (по клику пользователя)...');
+    console.log('💡 Запрашиваем разрешения на камеру (по клику пользователя)...');
     setPermissionError(null); // Очищаем предыдущую ошибку
     try {
       const stream = await getLocalStream();
       if (stream && sendTransportRef.current) {
         try {
           await produceMedia('video');
-          await produceMedia('audio');
-          console.log('✅ Медиа успешно отправлено');
+          console.log('✅ Видео успешно отправлено');
           setPermissionError(null); // Успех - очищаем ошибку
         } catch (error) {
-          console.error('❌ Ошибка отправки медиа:', error);
+          console.error('❌ Ошибка отправки видео:', error);
         }
       } else if (!stream) {
         // Если stream не получен, ошибка уже установлена в getLocalStream

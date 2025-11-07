@@ -46,7 +46,7 @@ export const PlayerVideoCard = ({
         ref={videoRef}
         autoPlay
         playsInline
-        muted={player.id === playerId}
+        muted={true}
         className={`player-video ${bannedPlayers.has(player.id) ? 'banned' : ''}`}
       />
 
