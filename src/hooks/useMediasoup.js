@@ -132,6 +132,11 @@ export const useMediasoup = (ws, playerId, players) => {
   // Получить локальный поток
   const getLocalStream = useCallback(async () => {
     try {
+      // Проверяем доступность mediaDevices
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('getUserMedia не поддерживается в этом браузере');
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
@@ -147,10 +152,31 @@ export const useMediasoup = (ws, playerId, players) => {
 
       setLocalStream(stream);
       setIsCameraOn(true);
+      console.log('✅ Доступ к камере и микрофону получен');
       return stream;
     } catch (error) {
       console.error('❌ Ошибка получения локального потока:', error);
       setIsCameraOn(false);
+      
+      // Показываем понятное сообщение пользователю
+      let errorMessage = 'Не удалось получить доступ к камере/микрофону';
+      
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        errorMessage = '⚠️ Разрешение на доступ к камере/микрофону отклонено. Пожалуйста, разрешите доступ в настройках браузера и обновите страницу.';
+        console.warn('💡 Подсказка: Проверьте настройки разрешений браузера для камеры и микрофона');
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        errorMessage = '⚠️ Камера или микрофон не найдены. Убедитесь, что устройства подключены.';
+      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        errorMessage = '⚠️ Камера или микрофон уже используются другим приложением.';
+      } else if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') {
+        errorMessage = '⚠️ Запрошенные настройки камеры не поддерживаются.';
+      }
+      
+      // Можно показать alert или использовать toast уведомление
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        alert(errorMessage);
+      }
+      
       return null;
     }
   }, []);
@@ -466,13 +492,43 @@ export const useMediasoup = (ws, playerId, players) => {
         videoTrack.enabled = !videoTrack.enabled;
         setIsCameraOn(videoTrack.enabled);
       }
+    } else {
+      // Если потока нет, попробуем запросить разрешения заново
+      console.log('💡 Поток не найден, запрашиваем разрешения...');
+      getLocalStream().then(async (stream) => {
+        if (stream && sendTransportRef.current) {
+          // Отправляем видео если transport готов
+          try {
+            await produceMedia('video');
+            await produceMedia('audio');
+          } catch (error) {
+            console.error('❌ Ошибка отправки медиа после получения потока:', error);
+          }
+        }
+      });
     }
-  }, [localStream]);
+  }, [localStream, getLocalStream, produceMedia]);
+
+  // Функция для повторного запроса разрешений
+  const requestPermissions = useCallback(async () => {
+    console.log('💡 Запрашиваем разрешения на камеру и микрофон...');
+    const stream = await getLocalStream();
+    if (stream && sendTransportRef.current) {
+      try {
+        await produceMedia('video');
+        await produceMedia('audio');
+        console.log('✅ Медиа успешно отправлено');
+      } catch (error) {
+        console.error('❌ Ошибка отправки медиа:', error);
+      }
+    }
+  }, [getLocalStream, produceMedia]);
 
   return {
     localStream,
     isCameraOn,
     toggleCamera,
     videoRefs,
+    requestPermissions, // Экспортируем функцию для повторного запроса
   };
 };
