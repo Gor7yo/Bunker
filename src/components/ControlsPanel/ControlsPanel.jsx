@@ -7,7 +7,9 @@ export const ControlsPanel = ({
   peersRef,
   onToggleCamera,
   onOpenMyCharacteristics,
-  onOpenAdminModal
+  onOpenAdminModal,
+  onRequestPermissions,
+  permissionError
 }) => {
   const connectedCount = Object.values(peersRef.current || {}).filter(
     pc => pc.connectionState === 'connected'
@@ -15,9 +17,19 @@ export const ControlsPanel = ({
 
   return (
     <div className="controls-panel">
+      {permissionError === 'NotAllowedError' && (
+        <button 
+          onClick={onRequestPermissions}
+          className="control-btn permission-btn"
+          style={{ backgroundColor: '#ff6b6b', color: 'white' }}
+        >
+          🔓 Разрешить доступ к камере
+        </button>
+      )}
       <button 
         onClick={onToggleCamera}
         className={`control-btn ${isCameraOn ? 'active' : 'inactive'}`}
+        disabled={permissionError === 'NotAllowedError'}
       >
         {isCameraOn ? "📹 Выкл" : "📹❌ Вкл"}
       </button>

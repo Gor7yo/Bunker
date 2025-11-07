@@ -4,6 +4,7 @@ import * as mediasoupClient from 'mediasoup-client';
 export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
   const [localStream, setLocalStream] = useState(null);
   const [isCameraOn, setIsCameraOn] = useState(true);
+  const [permissionError, setPermissionError] = useState(null); // Ошибка разрешений
   const videoRefs = useRef({});
   const deviceRef = useRef(null);
   const sendTransportRef = useRef(null);
@@ -160,6 +161,7 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
 
       setLocalStream(stream);
       setIsCameraOn(true);
+      setPermissionError(null); // Очищаем ошибку при успехе
       console.log('✅ Доступ к камере и микрофону получен');
       return stream;
     } catch (error) {
@@ -170,21 +172,23 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
       let errorMessage = 'Не удалось получить доступ к камере/микрофону';
       
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        errorMessage = '⚠️ Разрешение на доступ к камере/микрофону отклонено. Пожалуйста, разрешите доступ в настройках браузера и обновите страницу.';
+        errorMessage = 'Разрешение на доступ к камере/микрофону отклонено. Нажмите кнопку "Разрешить доступ" для повторного запроса.';
+        setPermissionError('NotAllowedError'); // Устанавливаем ошибку для показа кнопки
         console.warn('💡 Подсказка: Проверьте настройки разрешений браузера для камеры и микрофона');
       } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
         errorMessage = '⚠️ Камера или микрофон не найдены. Убедитесь, что устройства подключены.';
+        setPermissionError('NotFoundError');
       } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
         errorMessage = '⚠️ Камера или микрофон уже используются другим приложением.';
+        setPermissionError('NotReadableError');
       } else if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') {
         errorMessage = '⚠️ Запрошенные настройки камеры не поддерживаются.';
+        setPermissionError('OverconstrainedError');
+      } else {
+        setPermissionError('UnknownError');
       }
       
-      // Можно показать alert или использовать toast уведомление
-      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        alert(errorMessage);
-      }
-      
+      // Не показываем alert - покажем кнопку вместо этого
       return null;
     }
   }, []);
@@ -770,18 +774,27 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
     }
   }, [localStream, getLocalStream, produceMedia]);
 
-  // Функция для повторного запроса разрешений
+  // Функция для повторного запроса разрешений (вызывается по клику пользователя)
   const requestPermissions = useCallback(async () => {
-    console.log('💡 Запрашиваем разрешения на камеру и микрофон...');
-    const stream = await getLocalStream();
-    if (stream && sendTransportRef.current) {
-      try {
-        await produceMedia('video');
-        await produceMedia('audio');
-        console.log('✅ Медиа успешно отправлено');
-      } catch (error) {
-        console.error('❌ Ошибка отправки медиа:', error);
+    console.log('💡 Запрашиваем разрешения на камеру и микрофон (по клику пользователя)...');
+    setPermissionError(null); // Очищаем предыдущую ошибку
+    try {
+      const stream = await getLocalStream();
+      if (stream && sendTransportRef.current) {
+        try {
+          await produceMedia('video');
+          await produceMedia('audio');
+          console.log('✅ Медиа успешно отправлено');
+          setPermissionError(null); // Успех - очищаем ошибку
+        } catch (error) {
+          console.error('❌ Ошибка отправки медиа:', error);
+        }
+      } else if (!stream) {
+        // Если stream не получен, ошибка уже установлена в getLocalStream
+        console.warn('⚠️ Stream не получен, проверьте разрешения');
       }
+    } catch (error) {
+      console.error('❌ Ошибка при запросе разрешений:', error);
     }
   }, [getLocalStream, produceMedia]);
 
@@ -791,5 +804,6 @@ export const useMediasoup = (ws, playerId, players, gameStarted = false) => {
     toggleCamera,
     videoRefs,
     requestPermissions, // Экспортируем функцию для повторного запроса
+    permissionError, // Экспортируем состояние ошибки для показа кнопки
   };
 };

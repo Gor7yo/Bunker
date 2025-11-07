@@ -22,7 +22,7 @@ export const Lobby = ({ ws, playerId, players }) => {
   
   // Проверяем что игра началась через gameStartTime
   const gameStarted = !!gameState.gameStartTime;
-  const { localStream, isCameraOn, toggleCamera, videoRefs } = useMediasoup(ws, playerId, players, gameStarted);
+  const { localStream, isCameraOn, toggleCamera, videoRefs, requestPermissions, permissionError } = useMediasoup(ws, playerId, players, gameStarted);
   const peersRef = React.useRef({}); // Заглушка для совместимости (не используется в mediasoup)
   
   const {
@@ -381,6 +381,8 @@ export const Lobby = ({ ws, playerId, players }) => {
         onToggleCamera={toggleCamera}
         onOpenMyCharacteristics={() => setMyCharacteristicsModal(true)}
         onOpenAdminModal={() => setIsAdminModalOpen(true)}
+        onRequestPermissions={requestPermissions}
+        permissionError={permissionError}
       />
 
       <RoundAnimation show={showRoundAnimation} currentRound={currentRound} voting={false} />
