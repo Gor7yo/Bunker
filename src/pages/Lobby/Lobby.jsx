@@ -1,7 +1,7 @@
-import React, { useEffect, useContext } from "react";
+import React, { useEffect, useContext, useRef } from "react";
 import "./Lobby.css";
 import { DataContext } from "../../context/DataContext";
-import { useWebRTC } from "../../hooks/useWebRTC";
+import { useMediasoup } from "../../hooks/useMediasoup";
 import { useGameState } from "../../hooks/useGameState";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import { PlayerVideoCard } from "../../components/PlayerVideoCard/PlayerVideoCard";
@@ -19,7 +19,8 @@ export const Lobby = ({ ws, playerId, players }) => {
   
   const isHost = players.find(p => p.id === playerId)?.role === "host";
   
-  const { localStream, isCameraOn, toggleCamera, peersRef, videoRefs } = useWebRTC(ws, playerId, players);
+  const { localStream, isCameraOn, toggleCamera, videoRefs } = useMediasoup(ws, playerId, players);
+  const peersRef = useRef({}); // Заглушка для совместимости (не используется в mediasoup)
   const gameState = useGameState(ws, isHost, playerId, 5);
   
   const {
