@@ -270,68 +270,115 @@ export const useMediasoup = (ws, playerId, players) => {
   // Инициализация mediasoup
   useEffect(() => {
     if (!ws || !playerId || isInitializedRef.current) return;
+    
+    // Проверяем, что WebSocket открыт и игрок зарегистрирован
+    if (ws.readyState !== WebSocket.OPEN) {
+      console.log('⏳ Ожидание открытия WebSocket...');
+      return;
+    }
 
     const initializeMediasoup = async () => {
       try {
         // 1. Получаем RTP capabilities
-        ws.send(JSON.stringify({ type: 'get_router_rtp_capabilities' }));
-
-        const rtpCapabilities = await new Promise((resolve, reject) => {
-          const originalOnMessage = ws.onmessage;
-          ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'router_rtp_capabilities') {
-              resolve(data.rtpCapabilities);
-              ws.onmessage = originalOnMessage;
-            } else if (data.type === 'error') {
-              reject(new Error(data.message));
-              ws.onmessage = originalOnMessage;
-            } else {
-              originalOnMessage(event);
-            }
-          };
-        });
+        const rtpCapabilities = await Promise.race([
+          new Promise((resolve, reject) => {
+            const messageHandler = (event) => {
+              try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'router_rtp_capabilities') {
+                  ws.removeEventListener('message', messageHandler);
+                  clearTimeout(timeoutId);
+                  resolve(data.rtpCapabilities);
+                } else if (data.type === 'error') {
+                  ws.removeEventListener('message', messageHandler);
+                  clearTimeout(timeoutId);
+                  reject(new Error(data.message));
+                }
+              } catch (err) {
+                // Игнорируем ошибки парсинга других сообщений
+              }
+            };
+            ws.addEventListener('message', messageHandler);
+            
+            const timeoutId = setTimeout(() => {
+              ws.removeEventListener('message', messageHandler);
+              reject(new Error('Timeout waiting for router_rtp_capabilities'));
+            }, 10000);
+            
+            // Отправляем запрос
+            ws.send(JSON.stringify({ type: 'get_router_rtp_capabilities' }));
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+        ]);
 
         // 2. Инициализируем device
         const deviceReady = await initDevice(rtpCapabilities);
         if (!deviceReady) return;
 
         // 3. Создаем send transport
-        ws.send(JSON.stringify({ type: 'create_transport', direction: 'send' }));
-        const sendTransportData = await new Promise((resolve, reject) => {
-          const originalOnMessage = ws.onmessage;
-          ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'transport_created' && data.direction === 'send') {
-              resolve(data.transportData);
-              ws.onmessage = originalOnMessage;
-            } else if (data.type === 'error') {
-              reject(new Error(data.message));
-              ws.onmessage = originalOnMessage;
-            } else {
-              originalOnMessage(event);
-            }
-          };
-        });
+        const sendTransportData = await Promise.race([
+          new Promise((resolve, reject) => {
+            const messageHandler = (event) => {
+              try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'transport_created' && data.direction === 'send') {
+                  ws.removeEventListener('message', messageHandler);
+                  clearTimeout(timeoutId);
+                  resolve(data.transportData);
+                } else if (data.type === 'error') {
+                  ws.removeEventListener('message', messageHandler);
+                  clearTimeout(timeoutId);
+                  reject(new Error(data.message));
+                }
+              } catch (err) {
+                // Игнорируем ошибки парсинга других сообщений
+              }
+            };
+            ws.addEventListener('message', messageHandler);
+            
+            const timeoutId = setTimeout(() => {
+              ws.removeEventListener('message', messageHandler);
+              reject(new Error('Timeout waiting for transport_created'));
+            }, 10000);
+            
+            // Отправляем запрос
+            ws.send(JSON.stringify({ type: 'create_transport', direction: 'send' }));
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+        ]);
         await createTransport('send', sendTransportData);
 
         // 4. Создаем recv transport
-        ws.send(JSON.stringify({ type: 'create_transport', direction: 'recv' }));
-        const recvTransportData = await new Promise((resolve, reject) => {
-          const originalOnMessage = ws.onmessage;
-          ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'transport_created' && data.direction === 'recv') {
-              resolve(data.transportData);
-              ws.onmessage = originalOnMessage;
-            } else if (data.type === 'error') {
-              reject(new Error(data.message));
-              ws.onmessage = originalOnMessage;
-            } else {
-              originalOnMessage(event);
-            }
-          };
-        });
+        const recvTransportData = await Promise.race([
+          new Promise((resolve, reject) => {
+            const messageHandler = (event) => {
+              try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'transport_created' && data.direction === 'recv') {
+                  ws.removeEventListener('message', messageHandler);
+                  clearTimeout(timeoutId);
+                  resolve(data.transportData);
+                } else if (data.type === 'error') {
+                  ws.removeEventListener('message', messageHandler);
+                  clearTimeout(timeoutId);
+                  reject(new Error(data.message));
+                }
+              } catch (err) {
+                // Игнорируем ошибки парсинга других сообщений
+              }
+            };
+            ws.addEventListener('message', messageHandler);
+            
+            const timeoutId = setTimeout(() => {
+              ws.removeEventListener('message', messageHandler);
+              reject(new Error('Timeout waiting for transport_created'));
+            }, 10000);
+            
+            // Отправляем запрос
+            ws.send(JSON.stringify({ type: 'create_transport', direction: 'recv' }));
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+        ]);
         await createTransport('recv', recvTransportData);
 
         // 5. Получаем локальный поток и отправляем
