@@ -1,7 +1,7 @@
 import React, { useEffect, useContext } from "react";
 import "./Lobby.css";
 import { DataContext } from "../../context/DataContext";
-import { useMediasoup } from "../../hooks/useMediasoup";
+import { useWebRTC } from "../../hooks/useWebRTC";
 import { useGameState } from "../../hooks/useGameState";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import { PlayerVideoCard } from "../../components/PlayerVideoCard/PlayerVideoCard";
@@ -20,10 +20,10 @@ export const Lobby = ({ ws, playerId, players }) => {
   const isHost = players.find(p => p.id === playerId)?.role === "host";
   const gameState = useGameState(ws, isHost, playerId, 5);
   
-  // Проверяем что игра началась через gameStartTime
-  const gameStarted = !!gameState.gameStartTime;
-  const { localStream, isCameraOn, toggleCamera, videoRefs, requestPermissions, permissionError } = useMediasoup(ws, playerId, players, gameStarted);
-  const peersRef = React.useRef({}); // Заглушка для совместимости (не используется в mediasoup)
+  // Используем P2P WebRTC вместо mediasoup
+  const { localStream, isCameraOn, toggleCamera, videoRefs, peersRef } = useWebRTC(ws, playerId, players);
+  const requestPermissions = null; // Не используется в P2P режиме
+  const permissionError = null; // Не используется в P2P режиме
   
   const {
     isAdminModalOpen,
