@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import "./AdminPanel.css";
+import { WS_URL } from "../../config/websocket";
 
 export const AdminPanel = () => {
   const [ws, setWs] = useState(null);
@@ -21,9 +22,7 @@ export const AdminPanel = () => {
     if (wsRef.current) return;
 
     // Определяем URL WebSocket (localhost для разработки или продакшн)
-    const wsUrl = 'https://bunker-server-ujdj.onrender.com';
-    
-    const socket = new WebSocket(wsUrl);
+    const socket = new WebSocket(WS_URL);
     wsRef.current = socket;
     setWs(socket);
 

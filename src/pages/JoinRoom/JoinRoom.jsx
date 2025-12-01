@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useContext } from "react";
 import MyCamera from "../../components/MyCamera/MyCamera";
 import { DataContext } from "../../context/DataContext";
 import { Lobby } from "../Lobby/Lobby";
+import { WS_URL } from "../../config/websocket";
 
 export const JoinRoom = () => {
   const { webcamIsOn, mirrorCamera, setMirrorCamera } = useContext(DataContext);
@@ -25,7 +26,7 @@ export const JoinRoom = () => {
   useEffect(() => {
     if(wsRef.current) return
 
-    const socket = new WebSocket("https://bunker-server-ujdj.onrender.com");
+    const socket = new WebSocket(WS_URL);
     wsRef.current = socket;
     setWs(socket);
 
