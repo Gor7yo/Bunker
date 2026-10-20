@@ -1,7 +1,7 @@
 import { observer } from "mobx-react-lite";
 import { Eye } from "lucide-react";
 
-import { CARD_KEYS, CARD_LABELS, type CardKey, type GameView, type RoomView } from "../../api/types";
+import { CARD_LABELS, activeKeys, type CardKey, type GameView, type RoomView } from "../../api/types";
 import { CardView } from "../../components/CardView";
 import { roomStore } from "../../store/roomStore";
 import { ActionCard } from "./ActionCard";
@@ -26,7 +26,7 @@ export const MyCard = observer(({ view, game }: { view: RoomView; game: GameView
           ? requiredKey
             ? "Ваш ход. В первом раунде начните с профессии."
             : "Ваш ход: выберите, что раскрыть остальным."
-          : `Открыто ${view.myRevealed.length} из ${CARD_KEYS.length}. Цветная полоса — видно всем, курсив — только вам.`}
+          : `Открыто ${view.myRevealed.length} из ${activeKeys(view.settings).length}. Цветная полоса — видно всем, курсив — только вам.`}
       </p>
       <CardView
         card={view.myCard}

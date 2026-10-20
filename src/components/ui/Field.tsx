@@ -26,3 +26,7 @@ export const Input = ({ className, ...rest }: ComponentProps<"input">) => (
 export const Select = ({ className, ...rest }: ComponentProps<"select">) => (
   <select className={cx(styles.control, styles.select, className)} {...rest} />
 );
+
+export const Textarea = ({ className, ...rest }: ComponentProps<"textarea">) => (
+  <textarea className={cx(styles.control, styles.textarea, className)} {...rest} />
+);

@@ -2,7 +2,7 @@ import { observer } from "mobx-react-lite";
 import type { CSSProperties } from "react";
 import { Check, Crown, Gavel, Mic, MicOff, MoreVertical, Shield, Vote } from "lucide-react";
 
-import type { CardKey, GameView, PublicPlayer, RoomView } from "../../api/types";
+import { activeKeys, type CardKey, type GameView, type PublicPlayer, type RoomView } from "../../api/types";
 import { cx } from "../../components/ui";
 import { roomStore } from "../../store/roomStore";
 import { MicIndicator, ParticipantMedia } from "../../voice/ParticipantMedia";
@@ -36,6 +36,7 @@ export const PlayerTile = observer(({ player, view, game, width, index }: Props)
   const inGame = player.isAlive && !player.hasLeft;
   const isSpeaker = game.speakerId === player.id;
   const finished = game.phase === "FINISHED";
+  const inPlay = (key: CardKey) => activeKeys(view.settings).includes(key);
 
   const canVote =
     game.phase === "VOTING" && isAlivePlayer && !isMe && inGame && game.candidates.includes(player.id);
@@ -139,8 +140,8 @@ export const PlayerTile = observer(({ player, view, game, width, index }: Props)
 
       {showTraits && (
         <div className={styles.bottom}>
-          <TraitChips keys={MAIN_TRAITS} card={card} revealed={revealedKeys} hints={view.hints} />
-          <TraitChips keys={OTHER_TRAITS} card={card} revealed={revealedKeys} hints={view.hints} align="end" />
+          <TraitChips keys={MAIN_TRAITS.filter(inPlay)} card={card} revealed={revealedKeys} hints={view.hints} />
+          <TraitChips keys={OTHER_TRAITS.filter(inPlay)} card={card} revealed={revealedKeys} hints={view.hints} align="end" />
         </div>
       )}
     </article>

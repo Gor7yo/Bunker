@@ -7,6 +7,8 @@ import { cx, useTooltip } from "./ui";
 import styles from "./CardView.module.css";
 
 interface CardViewProps {
+  /** Characteristics in play, in order. */
+  keys?: readonly CardKey[];
   /** Known values: own card, moderator's view, or only revealed ones. */
   card: Partial<PlayerCard>;
   /** Keys revealed to everyone. */
@@ -27,6 +29,7 @@ interface CardViewProps {
  * (known to the viewer only) or unknown ("???").
  */
 export const CardView = ({
+  keys = CARD_KEYS,
   card,
   revealed = [],
   showHidden = false,
@@ -36,7 +39,7 @@ export const CardView = ({
   hints = {},
 }: CardViewProps) => (
   <ul className={cx(styles.card, compact && styles.compact)}>
-    {CARD_KEYS.map((key) => {
+    {keys.map((key) => {
       const value = card[key];
       const isRevealed = revealed.includes(key);
       if (!value && !showHidden) return null;

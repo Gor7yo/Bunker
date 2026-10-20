@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { Bot, Gavel, Zap } from "lucide-react";
+import { useRef, useState } from "react";
+import { Bot, Download, Gavel, SlidersHorizontal, Upload, Zap } from "lucide-react";
 
+import { exportSettings, readSettingsFile } from "../api/settings";
 import {
   TITLE_MAX_LENGTH,
   type ActionApproval,
@@ -9,8 +10,12 @@ import {
   type RoomSettings,
   type RoomTimers,
   type SettingsPatch,
+  activeKeys,
+  CARD_KEYS,
 } from "../api/types";
-import { Field, Input, Select, Switch, cx } from "./ui";
+import { toastStore } from "../store/toastStore";
+import { GameSetup } from "./GameSetup/GameSetup";
+import { Button, Field, Input, Select, Switch, cx } from "./ui";
 import styles from "./SettingsForm.module.css";
 
 const MODE_OPTIONS: { value: GameMode; title: string; hint: string; icon: typeof Bot }[] = [
@@ -29,6 +34,8 @@ const MODE_OPTIONS: { value: GameMode; title: string; hint: string; icon: typeof
 ];
 
 const PLAYER_OPTIONS = Array.from({ length: 13 }, (_, i) => i + 4);
+
+const SEAT_OPTIONS = Array.from({ length: 15 }, (_, i) => i + 1);
 
 const TIMER_FIELDS: { key: keyof RoomTimers; label: string; options: number[] }[] = [
   { key: "reveal", label: "Раскрытие (на игрока)", options: [30, 45, 60, 90, 120, 180] },
@@ -87,19 +94,35 @@ export const SettingsForm = ({ value, onChange, disabled, titlePlaceholder }: Se
       ))}
     </div>
 
-    <Field label="Максимум игроков">
-      <Select
-        disabled={disabled}
-        value={value.maxPlayers}
-        onChange={(e) => onChange({ maxPlayers: Number(e.target.value) })}
-      >
-        {PLAYER_OPTIONS.map((n) => (
-          <option key={n} value={n}>
-            {n}
-          </option>
-        ))}
-      </Select>
-    </Field>
+    <div className={styles.grid}>
+      <Field label="Максимум игроков">
+        <Select
+          disabled={disabled}
+          value={value.maxPlayers}
+          onChange={(e) => onChange({ maxPlayers: Number(e.target.value) })}
+        >
+          {PLAYER_OPTIONS.map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <Field label="Мест в бункере">
+        <Select
+          disabled={disabled}
+          value={value.seats ?? ""}
+          onChange={(e) => onChange({ seats: e.target.value ? Number(e.target.value) : null })}
+        >
+          <option value="">Половина игроков</option>
+          {SEAT_OPTIONS.map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </Select>
+      </Field>
+    </div>
 
     {value.mode === "AUTO" && (
       <div className={styles.grid}>
@@ -151,8 +174,76 @@ export const SettingsForm = ({ value, onChange, disabled, titlePlaceholder }: Se
         </Field>
       )}
     </fieldset>
+
+    <GameSection value={value} onChange={onChange} disabled={disabled} />
   </div>
 );
+
+const scenarioLabel = ({ kind }: { kind: string }) =>
+  kind === "RANDOM" ? "случайно" : kind === "PRESET" ? "выбран" : "свой";
+
+/** Summary of the full setup, plus export / import of it as a file. */
+const GameSection = ({ value, onChange, disabled }: Pick<SettingsFormProps, "value" | "onChange" | "disabled">) => {
+  const [open, setOpen] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const customCount = Object.values(value.cards.custom).filter(Boolean).length;
+  const { catastrophe, bunker } = value.scenario;
+
+  const importFile = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      onChange(await readSettingsFile(file));
+    } catch (e) {
+      toastStore.error(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  return (
+    <fieldset className={styles.section}>
+      <legend className={styles.legend}>
+        <SlidersHorizontal size={14} style={{ color: "var(--color-accent)" }} /> Игра
+      </legend>
+      <ul className={styles.summary}>
+        <li>
+          Характеристик: {activeKeys(value).length} из {CARD_KEYS.length}
+          {customCount > 0 && `, свои значения: ${customCount}`}
+        </li>
+        {value.cards.disabledActions.length > 0 && <li>Убрано карт действий: {value.cards.disabledActions.length}</li>}
+        <li>
+          Катастрофа — {scenarioLabel(catastrophe)}, бункер — {scenarioLabel(bunker)}
+        </li>
+      </ul>
+      <div className={styles.buttons}>
+        <Button size="sm" variant="primary" icon={<SlidersHorizontal size={14} />} onClick={() => setOpen(true)}>
+          {disabled ? "Подробнее" : "Настроить"}
+        </Button>
+        <Button size="sm" icon={<Download size={14} />} title="Сохранить настройки в файл" onClick={() => exportSettings(value)}>
+          Экспорт
+        </Button>
+        <Button
+          size="sm"
+          icon={<Upload size={14} />}
+          title="Загрузить настройки из файла"
+          disabled={disabled}
+          onClick={() => fileInput.current?.click()}
+        >
+          Импорт
+        </Button>
+        <input
+          ref={fileInput}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={(e) => {
+            void importFile(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
+      </div>
+      <GameSetup open={open} onClose={() => setOpen(false)} value={value} onChange={onChange} disabled={disabled} />
+    </fieldset>
+  );
+};
 
 interface TitleInputProps {
   initial: string;

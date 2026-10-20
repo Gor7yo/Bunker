@@ -2,7 +2,7 @@ import { observer } from "mobx-react-lite";
 import { useState } from "react";
 import { ArrowLeftRight, Flag, Play, Square, Vote } from "lucide-react";
 
-import { CARD_KEYS, CARD_LABELS, type CardKey, type GamePhase, type GameView, type RoomView } from "../../api/types";
+import { CARD_LABELS, activeKeys, type CardKey, type GamePhase, type GameView, type RoomView } from "../../api/types";
 import { Button, Field, Select, cx } from "../../components/ui";
 import { PHASE_LABELS, useGameActions } from "./gameActions";
 import styles from "./GameScreen.module.css";
@@ -162,7 +162,8 @@ const PendingActions = ({ view, game }: { view: RoomView; game: GameView }) => {
 const SwapForm = ({ view }: { view: RoomView }) => {
   const { act, pending } = useGameActions();
   const holders = view.players.filter((p) => p.role === "PLAYER" && p.card && !p.hasLeft);
-  const [key, setKey] = useState<CardKey>("profession");
+  const keys = activeKeys(view.settings);
+  const [key, setKey] = useState<CardKey>(keys.includes("profession") ? "profession" : keys[0]);
   const [a, setA] = useState("");
   const [b, setB] = useState("");
 
@@ -171,7 +172,7 @@ const SwapForm = ({ view }: { view: RoomView }) => {
       <span className={styles.modLabel}>Обмен</span>
       <div className={styles.swap}>
         <Select aria-label="Характеристика" value={key} onChange={(e) => setKey(e.target.value as CardKey)}>
-          {CARD_KEYS.map((k) => (
+          {keys.map((k) => (
             <option key={k} value={k}>
               {CARD_LABELS[k]}
             </option>

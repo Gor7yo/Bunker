@@ -22,12 +22,15 @@ import { SettingsForm } from "../../components/SettingsForm";
 import { Alert, Badge, Button, Page, Panel, cx } from "../../components/ui";
 import { useAction } from "../../hooks/useAction";
 import { roomStore } from "../../store/roomStore";
+import { toastStore } from "../../store/toastStore";
 import { VideoStrip } from "../../voice/VideoStrip";
 import styles from "./Lobby.module.css";
 
 export const Lobby = observer(({ view }: { view: RoomView }) => {
   const navigate = useNavigate();
   const { run, pending, error, setError } = useAction();
+  // Settings errors go to toasts: they stay visible over the setup drawer.
+  const settingsAction = useAction({ onError: toastStore.error });
   const [copied, setCopied] = useState(false);
 
   const { me, isHost, connected } = roomStore;
@@ -118,7 +121,7 @@ export const Lobby = observer(({ view }: { view: RoomView }) => {
           <SettingsForm
             value={settings}
             disabled={!isHost || pending}
-            onChange={(patch) => void run(() => roomStore.updateSettings(patch))}
+            onChange={(patch) => void settingsAction.run(() => roomStore.updateSettings(patch))}
           />
         </Panel>
       </div>

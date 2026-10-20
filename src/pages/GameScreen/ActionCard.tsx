@@ -2,7 +2,7 @@ import { observer } from "mobx-react-lite";
 import { useState } from "react";
 import { Hourglass, Zap } from "lucide-react";
 
-import { CARD_KEYS, CARD_LABELS, type CardKey, type MyAction, type PublicPlayer, type RoomView } from "../../api/types";
+import { CARD_LABELS, activeKeys, type CardKey, type MyAction, type PublicPlayer, type RoomView } from "../../api/types";
 import { Button, Field, Select } from "../../components/ui";
 import { useGameActions } from "./gameActions";
 import styles from "./GameScreen.module.css";
@@ -12,7 +12,6 @@ const NEEDS_HIDDEN = new Set(["Подозрение", "Исповедь"]);
 /** Cards that look at a hidden characteristic. */
 const PEEK = new Set(["Проверка досье", "Тайное знание"]);
 
-const hiddenKeysOf = (p: PublicPlayer) => CARD_KEYS.filter((k) => !(k in p.revealed));
 
 /** The viewer's action card: what it does, targets, "play" button. */
 export const ActionCard = observer(({ view, action }: { view: RoomView; action: MyAction }) => {
@@ -20,6 +19,7 @@ export const ActionCard = observer(({ view, action }: { view: RoomView; action: 
   const [targetId, setTargetId] = useState("");
   const [otherId, setOtherId] = useState("");
   const [key, setKey] = useState<CardKey | "">("");
+  const hiddenKeysOf = (p: PublicPlayer) => activeKeys(view.settings).filter((k) => !(k in p.revealed));
 
   const inGame = view.players.filter((p) => p.role === "PLAYER" && p.isAlive && !p.hasLeft);
   const exiled = view.players.filter((p) => p.role === "PLAYER" && !p.isAlive && !p.hasLeft);

@@ -64,3 +64,10 @@
 .select option {
   background: var(--color-surface);
 }
+
+.textarea {
+  min-height: 96px;
+  padding: var(--space-2) var(--space-3);
+  line-height: var(--leading-normal);
+  resize: vertical;
+}
