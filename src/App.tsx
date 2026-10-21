@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
+import { ConnectionStatus } from "./components/ConnectionStatus";
 import { Page, Spinner, Toaster } from "./components/ui";
 import { CreateRoom } from "./pages/CreateRoom/CreateRoom";
 import { Home } from "./pages/Home/Home";
@@ -18,6 +19,7 @@ function App() {
   return (
     <Suspense fallback={<Loading />}>
       <Toaster />
+      <ConnectionStatus />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/create" element={<CreateRoom />} />

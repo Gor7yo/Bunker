@@ -62,6 +62,7 @@ export function usePublicRooms(filters: RoomFilters) {
     rooms: loaded?.page?.rooms ?? [],
     total: loaded?.page?.total ?? 0,
     error: loaded?.error ?? null,
+    retry: () => setVersion((v) => v + 1),
     /** First load, or filters changed and the new result isn't here yet. */
     loading: loaded?.key !== key,
     initialLoading: loaded === null,

@@ -51,7 +51,11 @@ export const PlayerTile = observer(({ player, view, game, width, index }: Props)
   // Moderator and the final screen get full cards; others see revealed values only.
   const card = player.card ?? { ...player.known, ...player.revealed };
   const revealedKeys = Object.keys(player.revealed) as CardKey[];
-  const showTraits = !isMe && !isModeratorTile;
+  const showTraits = !isModeratorTile;
+  // Own tile: only what the others can see — the full card is in "Моя карта".
+  const traitKeys = (keys: CardKey[]) =>
+    keys.filter((key) => inPlay(key) && (!isMe || finished || revealedKeys.includes(key)));
+  const survived = finished && inGame && !isModeratorTile;
   const canManage = isModerator && !isModeratorTile && !finished && !!player.card;
 
   return (
@@ -71,6 +75,7 @@ export const PlayerTile = observer(({ player, view, game, width, index }: Props)
       {!inGame && !isModeratorTile && (
         <span className={styles.stamp}>{player.hasLeft ? "Вышел" : "Изгнан"}</span>
       )}
+      {survived && <span className={cx(styles.stamp, styles.stampSafe)}>В бункере</span>}
 
       <div className={styles.top}>
         <div className={styles.identity}>
@@ -140,8 +145,8 @@ export const PlayerTile = observer(({ player, view, game, width, index }: Props)
 
       {showTraits && (
         <div className={styles.bottom}>
-          <TraitChips keys={MAIN_TRAITS.filter(inPlay)} card={card} revealed={revealedKeys} hints={view.hints} />
-          <TraitChips keys={OTHER_TRAITS.filter(inPlay)} card={card} revealed={revealedKeys} hints={view.hints} align="end" />
+          <TraitChips keys={traitKeys(MAIN_TRAITS)} card={card} revealed={revealedKeys} hints={view.hints} />
+          <TraitChips keys={traitKeys(OTHER_TRAITS)} card={card} revealed={revealedKeys} hints={view.hints} align="end" />
         </div>
       )}
     </article>

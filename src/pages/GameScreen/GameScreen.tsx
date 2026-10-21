@@ -22,6 +22,7 @@ import { useFitGrid } from "../../hooks/useFitGrid";
 import { roomStore } from "../../store/roomStore";
 import { sfx } from "../../sound/sfx";
 import { useGameSounds } from "../../sound/useGameSounds";
+import { count } from "../../utils/plural";
 import { toastStore } from "../../store/toastStore";
 import { canRevealNow, GameActionsContext, type GameActions, type GameEvent, type SidePanel } from "./gameActions";
 import { GameLog } from "./GameLog";
@@ -106,6 +107,19 @@ export const GameScreen = observer(({ view }: { view: RoomView }) => {
         : "lost";
   useOutcomeTheme(outcome);
 
+  // Game over: drawers with live controls make no sense anymore.
+  const isFinished = game?.phase === "FINISHED";
+  const [prevFinished, setPrevFinished] = useState(isFinished);
+  if (isFinished !== prevFinished) {
+    setPrevFinished(isFinished);
+    if (isFinished) {
+      setSide(null);
+      setCardOpen(false);
+      setScenarioOpen(false);
+      setFinalOpen(true);
+    }
+  }
+
   // Moderator: a new card waiting for approval opens the console.
   const pendingCount = game?.pendingActions.length ?? 0;
   const [prevPending, setPrevPending] = useState(pendingCount);
@@ -151,7 +165,7 @@ export const GameScreen = observer(({ view }: { view: RoomView }) => {
           <div className={styles.topInfo}>
             <h1 className={styles.title}>{view.settings.title}</h1>
             <Badge icon={<User size={12} />}>
-              {game.aliveCount} в игре · {game.seats} мест
+              {game.aliveCount} в игре · {count(game.seats, ["место", "места", "мест"])}
             </Badge>
           </div>
 

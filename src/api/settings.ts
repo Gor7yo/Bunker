@@ -22,10 +22,15 @@ let catalog: Promise<Catalog> | null = null;
 
 /** GET /catalog, loaded once per page. */
 export const loadCatalog = (): Promise<Catalog> => {
-  catalog ??= fetch(`${SERVER_URL}/catalog`).then((response) => {
-    if (!response.ok) throw new Error("Не удалось загрузить карты и сценарии");
-    return response.json() as Promise<Catalog>;
-  });
+  catalog ??= fetch(`${SERVER_URL}/catalog`).then(
+    (response) => {
+      if (!response.ok) throw new Error("Не удалось загрузить карты и сценарии");
+      return response.json() as Promise<Catalog>;
+    },
+    () => {
+      throw new Error("Нет связи с сервером");
+    },
+  );
   catalog.catch(() => (catalog = null));
   return catalog;
 };

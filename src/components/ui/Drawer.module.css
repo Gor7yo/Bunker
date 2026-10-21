@@ -111,3 +111,8 @@
   opacity: 1;
   pointer-events: auto;
 }
+
+/* The side panel reaches the bottom corner, where the media dock floats. */
+.right .body {
+  padding-bottom: calc(var(--space-5) + 72px);
+}

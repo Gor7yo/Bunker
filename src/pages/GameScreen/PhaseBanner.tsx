@@ -1,13 +1,13 @@
 import { observer } from "mobx-react-lite";
 import { useState, type ReactNode } from "react";
-import { Check, Hourglass, Mic, SkipForward, Timer, Vote } from "lucide-react";
+import { Check, DoorClosed, Flag, Hourglass, Mic, MessagesSquare, Play, SkipForward, Square, Timer, Vote } from "lucide-react";
 
 import type { GamePhase, GameView, RoomView } from "../../api/types";
 import { Badge, Button, cx } from "../../components/ui";
 import { formatClock, useCountdown } from "../../hooks/useCountdown";
 import { useCountdownTicks } from "../../sound/useGameSounds";
 import { roomStore } from "../../store/roomStore";
-import { PHASE_LABELS, useGameActions } from "./gameActions";
+import { PHASE_LABELS, useGameActions, type GameEvent } from "./gameActions";
 import styles from "./GameScreen.module.css";
 
 /** Steps of a round shown above the phase text. */
@@ -25,7 +25,7 @@ interface Props {
 
 /** Current phase, its timer and the main action for this viewer. */
 export const PhaseBanner = observer(({ view, game }: Props) => {
-  const { act, pending } = useGameActions();
+  const { act, pending, modSeconds } = useGameActions();
   const secondsLeft = useCountdown(game.phaseEndsAt, roomStore.clockOffset);
   useCountdownTicks(secondsLeft);
 
@@ -35,7 +35,7 @@ export const PhaseBanner = observer(({ view, game }: Props) => {
   const progress =
     secondsLeft !== null && timer.total ? Math.max(0, Math.min(1, secondsLeft / timer.total)) : null;
   const stepIndex = STEPS.findIndex((step) => step.phases.includes(game.phase));
-  const { isAlivePlayer } = roomStore;
+  const { isAlivePlayer, isModerator } = roomStore;
   const isAuto = view.settings.mode === "AUTO";
   const meId = view.meId;
 
@@ -51,8 +51,10 @@ export const PhaseBanner = observer(({ view, game }: Props) => {
     case "INTRO":
       title = `Катастрофа: ${game.catastrophe.title}`;
       text = isAuto
-        ? "Изучите катастрофу и бункер справа. Скоро начнётся первый раунд."
-        : "Ведущий рассказывает о катастрофе и начнёт первый раунд.";
+        ? "Изучите катастрофу и бункер — кнопка «Сценарий» наверху. Скоро начнётся первый раунд."
+        : isModerator
+          ? "Расскажите о катастрофе и бункере, затем начните первый раунд."
+          : "Ведущий рассказывает о катастрофе и скоро начнёт первый раунд.";
       break;
 
     case "REVEAL":
@@ -71,8 +73,13 @@ export const PhaseBanner = observer(({ view, game }: Props) => {
           </Button>
         );
       } else if (game.speakerId) {
-        text = `Ходит ${nameOf(game.speakerId)}.`;
-        if (game.turnQueue.length > 0) text += ` Дальше: ${game.turnQueue.map(nameOf).join(", ")}.`;
+        text = `${isAuto ? "Ходит" : "Говорит"} ${nameOf(game.speakerId)}.`;
+        if (game.turnQueue.length > 0) {
+          text += ` ${isAuto ? "Дальше" : "Ещё не говорили"}: ${game.turnQueue.map(nameOf).join(", ")}.`;
+        }
+      } else if (isModerator) {
+        text = "Дайте слово игроку — кнопкой справа или в меню ⋮ на его камере.";
+        if (game.turnQueue.length > 0) text += ` Ещё не говорили: ${game.turnQueue.map(nameOf).join(", ")}.`;
       } else {
         text = isAuto ? "Раскрытие характеристик." : "Раскрывайте характеристики по указанию ведущего.";
       }
@@ -137,12 +144,16 @@ export const PhaseBanner = observer(({ view, game }: Props) => {
     case "EXILE":
       title = "Изгнание";
       text = game.lastExiledId
-        ? `${nameOf(game.lastExiledId)} ${game.exiledByLot ? "покидает бункер по жребию" : "изгнан из бункера"}. Его карта теперь открыта.`
+        ? `${nameOf(game.lastExiledId)} ${game.exiledByLot ? "покидает бункер по жребию" : "не попадает в бункер"}. Вся карта теперь открыта.`
         : "Игрок покинул бункер.";
       break;
 
     default:
       text = "";
+  }
+
+  if (isModerator && game.phase !== "FINISHED") {
+    action = moderatorAction(game, nameOf, (event, payload) => act(event, payload), pending, modSeconds) ?? action;
   }
 
   // Things that need someone's attention regardless of the phase.
@@ -151,7 +162,7 @@ export const PhaseBanner = observer(({ view, game }: Props) => {
     extra =
       game.confession.targetId === meId
         ? "Вас вызвали на исповедь: откройте «Мою карту» и раскройте любую характеристику."
-        : `${nameOf(game.confession.targetId)} должен раскрыть характеристику на свой выбор.`;
+        : `${nameOf(game.confession.targetId)} — исповедь: раскрыть характеристику на свой выбор.`;
   }
   if (roomStore.isModerator && game.pendingActions.length > 0) {
     extra = `Карт на одобрении: ${game.pendingActions.length} — откройте пульт.`;
@@ -203,3 +214,106 @@ export const PhaseBanner = observer(({ view, game }: Props) => {
     </section>
   );
 });
+
+/** The moderator's obvious next step for the current phase (the rest is in the console). */
+function moderatorAction(
+  game: GameView,
+  nameOf: (id: string | null) => string,
+  act: (event: GameEvent, payload?: object) => void,
+  pending: boolean,
+  seconds: number | null,
+): ReactNode {
+  const nextRound =
+    game.aliveCount <= game.seats ? (
+      <Button variant="primary" icon={<Flag size={16} />} disabled={pending} onClick={() => act("mod:finish")}>
+        Завершить игру
+      </Button>
+    ) : (
+      <Button variant="primary" icon={<Play size={16} />} disabled={pending} onClick={() => act("mod:nextRound")}>
+        {game.round === 0 ? "Начать первый раунд" : `Начать раунд ${game.round + 1}`}
+      </Button>
+    );
+
+  switch (game.phase) {
+    case "INTRO":
+    case "EXILE":
+      return nextRound;
+
+    case "REVEAL": {
+      const next = game.turnQueue[0];
+      return next ? (
+        <Button
+          variant={game.speakerId ? "secondary" : "primary"}
+          icon={<Mic size={16} />}
+          disabled={pending}
+          onClick={() => act("mod:speaker", { playerId: next, seconds })}
+        >
+          Слово: {nameOf(next)}
+        </Button>
+      ) : (
+        <Button
+          variant="primary"
+          icon={<MessagesSquare size={16} />}
+          disabled={pending}
+          onClick={() => act("mod:phase", { phase: "DISCUSSION", seconds })}
+        >
+          К обсуждению
+        </Button>
+      );
+    }
+
+    case "DISCUSSION":
+      return (
+        <Button variant="primary" icon={<Vote size={16} />} disabled={pending} onClick={() => act("mod:startVoting", { seconds })}>
+          Начать голосование
+        </Button>
+      );
+
+    case "VOTING": {
+      const everyone = game.votedIds.length >= game.aliveCount;
+      return (
+        <Button
+          variant={everyone ? "primary" : "secondary"}
+          icon={<Square size={14} />}
+          disabled={pending}
+          onClick={() => act("mod:closeVoting")}
+        >
+          Закрыть {game.votedIds.length}/{game.aliveCount}
+        </Button>
+      );
+    }
+
+    case "VOTE_RESULT": {
+      const leaders = game.lastVote?.leaders ?? [];
+      if (leaders.length === 1) {
+        const name = nameOf(leaders[0]);
+        return (
+          <Button
+            variant="primary"
+            icon={<DoorClosed size={16} />}
+            disabled={pending}
+            onClick={() => confirm(`Изгнать ${name}?`) && act("mod:exile", { playerId: leaders[0] })}
+          >
+            Изгнать: {name}
+          </Button>
+        );
+      }
+      if (leaders.length > 1 && leaders.length < game.aliveCount) {
+        return (
+          <Button
+            variant="primary"
+            icon={<Vote size={16} />}
+            disabled={pending}
+            onClick={() => act("mod:startVoting", { candidates: leaders, seconds })}
+          >
+            Переголосовать
+          </Button>
+        );
+      }
+      return null;
+    }
+
+    default:
+      return null;
+  }
+}

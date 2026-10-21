@@ -1,7 +1,7 @@
 import { observer } from "mobx-react-lite";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Bot, DoorOpen, Gavel, Plus, Radiation, Search, Undo2, Users, X } from "lucide-react";
+import { Bot, DoorOpen, Gavel, Plus, Radiation, RotateCw, Search, Undo2, Users, WifiOff, X } from "lucide-react";
 
 import { DEFAULT_FILTERS, type RoomFilters, type RoomSort } from "../../api/rooms";
 import { NAME_MAX_LENGTH, type GameMode, type PublicRoomSummary } from "../../api/types";
@@ -147,7 +147,7 @@ interface PublicRoomsProps {
 }
 
 const PublicRooms = ({ filters, onFiltersChange, disabled, onJoin }: PublicRoomsProps) => {
-  const { rooms, total, loading, initialLoading, error } = usePublicRooms(filters);
+  const { rooms, total, loading, initialLoading, error, retry } = usePublicRooms(filters);
   const hasFilters = filters.q !== "" || filters.mode !== "" || filters.freeSlots;
 
   return (
@@ -199,11 +199,20 @@ const PublicRooms = ({ filters, onFiltersChange, disabled, onJoin }: PublicRooms
         </Select>
       </div>
 
-      {error && <Alert>{error}</Alert>}
+      {error && rooms.length > 0 && <Alert>{error}</Alert>}
 
       {initialLoading ? (
         <div className={styles.empty}>
           <Spinner />
+        </div>
+      ) : error && rooms.length === 0 ? (
+        <div className={styles.empty}>
+          <WifiOff size={32} aria-hidden />
+          <p>Не удалось загрузить комнаты.</p>
+          <p className="text-muted text-sm">{error}</p>
+          <Button size="sm" variant="ghost" icon={<RotateCw size={14} />} disabled={loading} onClick={retry}>
+            Повторить
+          </Button>
         </div>
       ) : rooms.length === 0 ? (
         <div className={styles.empty}>

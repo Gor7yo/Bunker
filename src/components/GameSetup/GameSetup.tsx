@@ -77,9 +77,14 @@ export const GameSetup = ({ open, onClose, value, onChange, disabled }: GameSetu
       {error && <Alert>{error}</Alert>}
       {!catalog && !error && <Spinner />}
 
-      {catalog && tab === "traits" && <TraitsTab {...props} catalog={catalog} />}
-      {catalog && tab === "actions" && <ActionsTab {...props} catalog={catalog} />}
-      {catalog && tab === "scenario" && <ScenarioTab {...props} catalog={catalog} />}
+      {catalog && (
+        // Remount per tab so the content fades in.
+        <div key={tab} className={styles.tabPanel} role="tabpanel">
+          {tab === "traits" && <TraitsTab {...props} catalog={catalog} />}
+          {tab === "actions" && <ActionsTab {...props} catalog={catalog} />}
+          {tab === "scenario" && <ScenarioTab {...props} catalog={catalog} />}
+        </div>
+      )}
     </Drawer>,
     document.body,
   );

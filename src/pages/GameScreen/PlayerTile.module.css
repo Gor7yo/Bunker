@@ -90,6 +90,7 @@
   font-weight: 700;
   letter-spacing: 0.15em;
   text-transform: uppercase;
+  white-space: nowrap;
   /* Upper part of the tile — the lower part is taken by characteristics. */
   top: 30%;
   transform: translate(-50%, -50%) rotate(-12deg);
@@ -285,4 +286,27 @@
 .bottom > * {
   max-width: 49%;
   pointer-events: auto;
+}
+
+/* Final screen: survivors get a green stamp */
+.stampSafe {
+  border-color: var(--color-success);
+  color: var(--color-success);
+  transform: translate(-50%, -50%) rotate(-6deg);
+  animation-name: stamp-safe;
+  animation-delay: calc(var(--i, 0) * 120ms + 600ms);
+}
+
+@keyframes stamp-safe {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(-24deg) scale(2.4);
+  }
+  60% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) rotate(-4deg) scale(0.92);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(-6deg) scale(1);
+  }
 }

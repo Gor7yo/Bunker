@@ -259,6 +259,10 @@
   color: var(--color-accent);
   font-size: var(--text-xs);
   white-space: nowrap;
+  transition:
+    background-color var(--duration) var(--ease),
+    color var(--duration) var(--ease),
+    opacity var(--duration) var(--ease);
 }
 
 .revealButton:hover:not(:disabled) {
@@ -280,6 +284,9 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
+  transition:
+    color var(--duration) var(--ease),
+    border-color var(--duration) var(--ease);
 }
 
 .iconButton:hover:not(:disabled) {

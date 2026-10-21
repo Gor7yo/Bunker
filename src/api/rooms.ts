@@ -29,7 +29,14 @@ export async function fetchRooms(filters: RoomFilters, signal?: AbortSignal): Pr
   if (filters.mode) params.set("mode", filters.mode);
   if (filters.freeSlots) params.set("freeSlots", "1");
 
-  const response = await fetch(`${SERVER_URL}/rooms?${params}`, { signal });
+  let response: Response;
+  try {
+    response = await fetch(`${SERVER_URL}/rooms?${params}`, { signal });
+  } catch (e) {
+    if (signal?.aborted) throw e;
+    // fetch only throws on network failures — the server is down or unreachable.
+    throw new Error("Нет связи с сервером", { cause: e });
+  }
   if (!response.ok) {
     const body = await response.json().catch(() => null);
     throw new Error(body?.message ?? "Не удалось загрузить комнаты");
