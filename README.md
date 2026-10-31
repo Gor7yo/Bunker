@@ -47,6 +47,7 @@ pnpm dev                 # http://localhost:5173
 | Variable | Description | Default |
 |---|---|---|
 | `VITE_SERVER_URL` | Server URL | `http://localhost:3000` |
+| `VITE_SENTRY_DSN` | Sentry project DSN for error reports. Leave empty to turn reporting off. | — |
 
 > Browsers only allow camera and microphone access on `localhost` or over **HTTPS**. To play with friends over the network, serve the client over HTTPS.
 

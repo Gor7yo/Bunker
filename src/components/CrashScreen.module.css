@@ -1,0 +1,14 @@
+.panel {
+  align-items: center;
+  max-width: 440px;
+  text-align: center;
+}
+
+.icon {
+  color: var(--color-danger);
+  animation: pop-in 400ms var(--ease-spring) backwards;
+}
+
+.title {
+  font-size: var(--text-xl);
+}
